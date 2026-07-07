@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4-Axis CNC Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .code-font { font-family: 'Fira Code', monospace; }
+        
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+            transition: transform 0.1s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-200 min-h-screen p-3 sm:p-6">
+
+    <div class="max-w-6xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <div class="bg-slate-900 p-6 rounded-2xl shadow-xl border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
+                    <span class="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></span>
+                    4-Axis Scanner Control Panel
+                </h1>
+                <p class="text-slate-400 mt-1">Real-time simulator, switch diagnostician, and math parser</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <span class="px-3 py-1 bg-blue-500/10 text-blue-400 rounded-full text-xs font-semibold border border-blue-500/20">Mega Pins 22-32</span>
+                <span class="px-3 py-1 bg-indigo-500/10 text-indigo-400 rounded-full text-xs font-semibold border border-indigo-500/20">1/8 Microstepping</span>
+                <span id="system-status-badge" class="px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-xs font-semibold border border-emerald-500/20">System Ready</span>
+            </div>
+        </div>
+
+        <!-- Main Workspace Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Column: Controls & Hardware Switches -->
+            <div class="lg:col-span-5 space-y-6">
+                
+                <!-- Hardware Physical Switch Board -->
+                <div class="bg-slate-900 p-6 rounded-2xl shadow-xl border border-slate-800 relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold text-white">Physical Control Switches</h2>
+                        <span class="text-[10px] code-font px-2 py-0.5 bg-slate-800 text-slate-400 rounded">INPUT_PULLUP</span>
+                    </div>
+                    
+                    <p class="text-xs text-slate-400 mb-6">Interactive button layout representing the mechanical switches connected to your Arduino Mega. Click and hold to test axis travel!</p>
+                    
+                    <div class="space-y-4">
+                        <!-- X Axis Switches -->
+                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+                            <div>
+                                <span class="text-xs font-bold text-slate-400 block">X-Axis</span>
+                                <span class="text-[10px] text-blue-400 code-font">NEMA 17 (Pitch: 5mm)</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button id="btn-x-rev" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 active:text-white rounded-lg text-xs font-bold transition-all border border-slate-700 select-none touch-none" title="Arduino Pin 29">REV <span class="text-[9px] block text-slate-500 active:text-blue-200">Pin 29</span></button>
+                                <button id="btn-x-fwd" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 active:text-white rounded-lg text-xs font-bold transition-all border border-slate-700 select-none touch-none" title="Arduino Pin 28">FWD <span class="text-[9px] block text-slate-500 active:text-blue-200">Pin 28</span></button>
+                            </div>
+                        </div>
+
+                        <!-- Y Axis Switches -->
+                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+                            <div>
+                                <span class="text-xs font-bold text-slate-400 block">Y-Axis</span>
+                                <span class="text-[10px] text-blue-400 code-font">NEMA 17 (Pitch: 5mm)</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button id="btn-y-rev" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 active:text-white rounded-lg text-xs font-bold transition-all border border-slate-700 select-none touch-none" title="Arduino Pin 23">REV <span class="text-[9px] block text-slate-500 active:text-blue-200">Pin 23</span></button>
+                                <button id="btn-y-fwd" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 active:text-white rounded-lg text-xs font-bold transition-all border border-slate-700 select-none touch-none" title="Arduino Pin 22">FWD <span class="text-[9px] block text-slate-500 active:text-blue-200">Pin 22</span></button>
+                            </div>
+                        </div>
+
+                        <!-- A Axis Switches -->
+                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+                            <div>
+                                <span class="text-xs font-bold text-slate-400 block">A-Axis (Rotary)</span>
+                                <span class="text-[10px] text-amber-500 code-font">NEMA 17 (Pitch: 1mm)</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button id="btn-a-rev" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 active:text-white rounded-lg text-xs font-bold transition-all border border-slate-700 select-none touch-none" title="Arduino Pin 25">REV <span class="text-[9px] block text-slate-500 active:text-blue-200">Pin 25</span></button>
+                                <button id="btn-a-fwd" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 active:text-white rounded-lg text-xs font-bold transition-all border border-slate-700 select-none touch-none" title="Arduino Pin 24">FWD <span class="text-[9px] block text-slate-500 active:text-blue-200">Pin 24</span></button>
+                            </div>
+                        </div>
+
+                        <!-- Z Axis Switches -->
+                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+                            <div>
+                                <span class="text-xs font-bold text-slate-400 block">Z-Axis (Vertical)</span>
+                                <span class="text-[10px] text-emerald-400 code-font">NEMA 23 (Pitch: 5mm)</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <button id="btn-z-rev" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 active:text-white rounded-lg text-xs font-bold transition-all border border-slate-700 select-none touch-none" title="Arduino Pin 27">REV <span class="text-[9px] block text-slate-500 active:text-blue-200">Pin 27</span></button>
+                                <button id="btn-z-fwd" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 active:text-white rounded-lg text-xs font-bold transition-all border border-slate-700 select-none touch-none" title="Arduino Pin 26">FWD <span class="text-[9px] block text-slate-500 active:text-blue-200">Pin 26</span></button>
+                            </div>
+                        </div>
+
+                        <!-- Scan Controls -->
+                        <div class="pt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <button id="btn-go-target" class="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:from-blue-700 active:to-indigo-700 text-white rounded-xl font-bold text-xs transition-all border border-blue-500/20 flex flex-col items-center justify-center">
+                                <span>GO TO TARGET</span>
+                                <span class="text-[9px] text-blue-200 font-medium code-font mt-0.5">Canvas Click</span>
+                            </button>
+                            <button id="btn-auto-scan" class="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:from-emerald-700 active:to-teal-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs transition-all border border-emerald-500/20 flex flex-col items-center justify-center">
+                                <span>START SCAN</span>
+                                <span class="text-[9px] text-emerald-200 font-medium code-font mt-0.5">Pin 32</span>
+                            </button>
+                            <button id="btn-stop-scan" disabled class="w-full py-3 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 active:from-red-700 active:to-rose-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs transition-all border border-red-500/20 flex flex-col items-center justify-center">
+                                <span>ABORT SCAN</span>
+                                <span class="text-[9px] text-red-200 font-medium code-font mt-0.5">Software E-Stop</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Parameters -->
+                <div class="bg-slate-900 p-6 rounded-2xl shadow-xl border border-slate-800">
+                    <h2 class="text-lg font-semibold text-white mb-6 border-b border-slate-800 pb-2">Configuration Settings</h2>
+                    <div class="space-y-6">
+                        <div>
+                            <div class="flex justify-between text-sm font-medium text-slate-300 mb-2">
+                                <span>Jog Target Velocity</span>
+                                <span class="text-blue-400 font-bold"><span id="val-speed">5.0</span> mm/s</span>
+                            </div>
+                            <input type="range" id="in-speed" min="1" max="25" step="0.5" value="5.0">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm font-medium text-slate-300 mb-2">
+                                <span>Scan Grid Width (Z-Axis)</span>
+                                <span class="text-blue-400 font-bold"><span id="val-width">50</span> mm</span>
+                            </div>
+                            <input type="range" id="in-width" min="10" max="250" step="10" value="50">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm font-medium text-slate-300 mb-2">
+                                <span>Scan Grid Length (Y-Axis)</span>
+                                <span class="text-blue-400 font-bold"><span id="val-length">50</span> mm</span>
+                            </div>
+                            <input type="range" id="in-length" min="10" max="250" step="10" value="50">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm font-medium text-slate-300 mb-2">
+                                <span>Grid Resolution (Step Size)</span>
+                                <span class="text-blue-400 font-bold"><span id="val-step">10</span> mm</span>
+                            </div>
+                            <input type="range" id="in-step" min="2" max="50" step="1" value="10">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm font-medium text-slate-300 mb-2">
+                                <span>Sensor Reading Stop-Time</span>
+                                <span class="text-blue-400 font-bold"><span id="val-wait">15</span> sec</span>
+                            </div>
+                            <input type="range" id="in-wait" min="1" max="60" step="1" value="15">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-sm font-medium text-slate-300 mb-2">
+                                <span>Dashboard Simulation Speed</span>
+                                <span class="text-indigo-400 font-bold"><span id="val-sim-speed">50</span>x</span>
+                            </div>
+                            <input type="range" id="in-sim-speed" min="1" max="100" step="1" value="50">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div class="lg:col-span-7 space-y-6 flex flex-col justify-between">
+                
+                <!-- Live Visualizer -->
+                <div class="bg-slate-900 p-6 rounded-2xl shadow-xl border border-slate-800 flex-1 flex flex-col">
+                    <div class="flex items-center justify-between mb-1 flex-wrap gap-2">
+                        <h2 class="text-lg font-semibold text-white">Live Grid Tracking Visualizer</h2>
+                        <div class="flex items-center gap-2 text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full" style="background: rgb(59,130,246)"></span>Cool</span>
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full" style="background: rgb(16,185,129)"></span></span>
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full" style="background: rgb(245,158,11)"></span></span>
+                            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full" style="background: rgb(239,68,68)"></span>Hot</span>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-slate-500 mb-3">Dots are colored by measured temperature. The scan-area grid outline only appears while you adjust the width, length, or step sliders.</p>
+                    <div class="bg-slate-950 rounded-xl border border-slate-800 flex-1 flex flex-col p-2">
+                        <div class="relative flex-1 w-full h-full min-h-[250px]">
+                            <canvas id="viz-canvas" class="absolute inset-0 w-full h-full block bg-slate-950"></canvas>
+                        </div>
+                        <!-- Bottom Coordinate Bar -->
+                        <div class="mt-2 bg-slate-900 px-4 py-2.5 rounded-lg border border-slate-800 flex flex-col gap-2 text-[11px] sm:text-xs font-mono text-slate-300">
+                            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                                <div>X Pos: <span id="pos-x" class="text-blue-400 font-bold text-sm">0.00</span> mm</div>
+                                <div>Y Pos: <span id="pos-y" class="text-blue-400 font-bold text-sm">0.00</span> mm</div>
+                                <div>Z Pos: <span id="pos-z" class="text-blue-400 font-bold text-sm">0.00</span> mm</div>
+                                <div>A Pos: <span id="pos-a" class="text-amber-500 font-bold text-sm">0.00</span>°</div>
+                            </div>
+                            <div class="flex justify-around items-center pt-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-slate-500 uppercase tracking-widest text-[9px] font-sans font-bold">Mag Flux:</span> 
+                                    <span id="sens-flux" class="text-purple-400 font-bold text-sm">0.00</span> mT
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-slate-500 uppercase tracking-widest text-[9px] font-sans font-bold">Temp:</span> 
+                                    <span id="sens-temp" class="text-rose-400 font-bold text-sm">25.0</span> °C
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Arduino Diagnostics Log -->
+                <div class="bg-slate-900 p-6 rounded-2xl shadow-xl border border-slate-800">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 bg-sky-500 rounded-full animate-ping"></span>
+                            <h2 class="text-sm font-semibold text-white uppercase tracking-wider">Arduino Console</h2>
+                        </div>
+                        <div class="flex gap-4">
+                            <button id="btn-download-log" class="text-xs text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1 transition-colors">
+                                Download Data (CSV)
+                            </button>
+                            <button id="btn-clear-console" class="text-xs text-slate-500 hover:text-slate-300 font-medium transition-colors">Clear Output</button>
+                        </div>
+                    </div>
+                    <div id="serial-terminal" class="bg-slate-950 p-4 rounded-xl border border-slate-800 h-36 overflow-y-auto custom-scrollbar code-font text-xs text-emerald-400 space-y-1"></div>
+                </div>
+
+                <!-- Live Auto-Scan Analysis & Progress Bar -->
+                <div class="bg-slate-900 p-6 rounded-2xl shadow-xl border-t border-emerald-500/20">
+                    <h2 class="text-sm font-semibold text-white uppercase tracking-wider mb-4 text-slate-400">Scan Duration Projections</h2>
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
+                        <div class="space-y-2 flex-1 w-full text-xs">
+                            <div class="flex justify-between border-b border-slate-800/80 pb-1.5">
+                                <span class="text-slate-400">Total Data Points:</span>
+                                <span class="text-purple-400 font-bold" id="out-points">36</span>
+                            </div>
+                            <div class="flex justify-between border-b border-slate-800/80 pb-1.5">
+                                <span class="text-slate-400">Accumulated Sensor Wait Time:</span>
+                                <span class="text-white font-medium" id="out-time-wait">9m 0s</span>
+                            </div>
+                            <div class="flex justify-between border-b border-slate-800/80 pb-1.5">
+                                <span class="text-slate-400">Rig Linear Movement Duration:</span>
+                                <span class="text-white font-medium" id="out-time-travel">1m 10s</span>
+                            </div>
+                        </div>
+                        <div class="bg-slate-950 p-4 rounded-xl border border-emerald-500/30 text-center w-full sm:w-auto sm:min-w-[160px]">
+                            <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-1">Estimated Run Time</p>
+                            <p class="text-2xl font-bold text-white" id="out-time-total">10m 10s</p>
+                        </div>
+                    </div>
+
+                    <div class="w-full bg-slate-950/50 p-3 rounded-xl border border-slate-800">
+                        <div class="flex justify-between text-[10px] font-bold uppercase tracking-wider mb-2">
+                            <span class="text-slate-500">Live Scan Progress</span>
+                            <span id="scan-time-remaining" class="text-emerald-400 code-font">0s remaining</span>
+                        </div>
+                        <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700/50 relative">
+                            <div id="scan-progress-bar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Constants & Config
+        const stepsPerRev = 200.0;
+        const microsteps = 8.0;
+        const pitchXYZ = 5.0;
+        const pitchA = 1.0;
+
+        const maxMachineYLimit = 250.0;
+        const maxMachineZLimit = 250.0;
+
+        // Machine State
+        let machineX = 0.0, machineY = 0.0, machineZ = 0.0, machineA = 0.0;
+        let isSimulatingScan = false;
+        let simulatedWaitCountdown = 0.0;
+        let lastTimestamp = 0;
+        
+        // Target & Scanning
+        let scanWaypoints = [];
+        let scanStartOrigin = { z: 0, y: 0 };
+        let userTarget = null;
+        let isMovingToTarget = false;
+        let isReturningToOrigin = false;
+        let scannedPoints = new Map(); // pointKey -> temperature (°C)
+        let totalSimulatedTimeRequired = 0;
+        let currentSimulatedTimeElapsed = 0;
+        let activeJogs = {};
+
+        // Grid overlay only shows briefly while the user is adjusting scan-area sliders
+        let gridVisible = false;
+        let gridHideTimer = null;
+        
+        // Structured CSV Data Array (Initialize with Headers)
+        let csvData = ["Time,Z_Pos_mm,Y_Pos_mm,Flux_mT,Temp_C"];
+
+        const canvas = document.getElementById('viz-canvas');
+        const ctx = canvas.getContext('2d');
+
+        function printToSerial(text, styleClass = '') {
+            const terminal = document.getElementById('serial-terminal');
+            const newLog = document.createElement('div');
+            if (styleClass) newLog.className = styleClass;
+            
+            const now = new Date();
+            const timeStr = `[${now.toTimeString().split(' ')[0]}] `;
+            newLog.textContent = timeStr + text;
+            terminal.appendChild(newLog);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function showGridTemporarily() {
+            gridVisible = true;
+            if (gridHideTimer) clearTimeout(gridHideTimer);
+            gridHideTimer = setTimeout(() => { gridVisible = false; }, 1500);
+        }
+
+        // Maps a temperature reading to a blue -> emerald -> amber -> red gradient
+        function tempToColor(temp) {
+            const minT = 24, maxT = 42;
+            const t = Math.max(0, Math.min(1, (temp - minT) / (maxT - minT)));
+            const stops = [
+                { t: 0.0,  c: [59, 130, 246] },  // cool blue
+                { t: 0.33, c: [16, 185, 129] },  // emerald
+                { t: 0.66, c: [245, 158, 11] },  // amber
+                { t: 1.0,  c: [239, 68, 68] }    // hot red
+            ];
+            for (let i = 0; i < stops.length - 1; i++) {
+                if (t >= stops[i].t && t <= stops[i + 1].t) {
+                    const localT = (t - stops[i].t) / (stops[i + 1].t - stops[i].t);
+                    const c = stops[i].c.map((v, idx) => Math.round(v + (stops[i + 1].c[idx] - v) * localT));
+                    return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+                }
+            }
+            return `rgb(239, 68, 68)`;
+        }
+
+        function computeCalculations() {
+            const jogSpeed = parseFloat(document.getElementById('in-speed').value);
+            const scanWidth = parseFloat(document.getElementById('in-width').value);
+            const scanLength = parseFloat(document.getElementById('in-length').value);
+            const scanStep = parseFloat(document.getElementById('in-step').value);
+            const waitTime = parseFloat(document.getElementById('in-wait').value);
+            const simSpeed = parseFloat(document.getElementById('in-sim-speed').value);
+
+            document.getElementById('val-speed').textContent = jogSpeed.toFixed(1);
+            document.getElementById('val-width').textContent = scanWidth;
+            document.getElementById('val-length').textContent = scanLength;
+            document.getElementById('val-step').textContent = scanStep;
+            document.getElementById('val-wait').textContent = waitTime;
+            document.getElementById('val-sim-speed').textContent = simSpeed;
+
+            const pointsZ = Math.floor(scanWidth / scanStep) + 1;
+            const pointsY = Math.floor(scanLength / scanStep) + 1;
+            const totalPoints = pointsZ * pointsY;
+            const totalDistance = (pointsY * scanWidth) + scanLength;
+
+            document.getElementById('out-points').textContent = totalPoints;
+
+            const travelTimeSecs = totalDistance / jogSpeed;
+            const waitTimeSecs = totalPoints * waitTime;
+            document.getElementById('out-time-travel').textContent = formatSeconds(travelTimeSecs);
+            document.getElementById('out-time-wait').textContent = formatSeconds(waitTimeSecs);
+            document.getElementById('out-time-total').textContent = formatSeconds(travelTimeSecs + waitTimeSecs);
+        }
+
+        function formatSeconds(totalSeconds) {
+            const h = Math.floor(totalSeconds / 3600);
+            const m = Math.floor((totalSeconds % 3600) / 60);
+            const s = Math.round(totalSeconds % 60);
+            if (h > 0) return `${h}h ${m}m ${s}s`;
+            if (m > 0) return `${m}m ${s}s`;
+            return `${s}s`;
+        }
+
+        function drawVirtualMachine() {
+            const scanWidth = parseFloat(document.getElementById('in-width').value);
+            const scanLength = parseFloat(document.getElementById('in-length').value);
+            const scanStep = parseFloat(document.getElementById('in-step').value);
+
+            const width = canvas.width = canvas.clientWidth;
+            const height = canvas.height = canvas.clientHeight;
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(0, 0, width, height);
+
+            const pad = 40;
+            const plotW = width - (pad * 2);
+            const plotH = height - (pad * 2);
+
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            
+            for (let i = 0; i <= 5; i++) {
+                const y = pad + (plotH * (i / 5));
+                ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(width - pad, y); ctx.stroke();
+                ctx.fillStyle = '#64748b'; ctx.font = '10px monospace';
+                ctx.fillText(((1.0 - (i / 5)) * maxMachineYLimit).toFixed(0) + 'mm', pad - 35, y + 4);
+            }
+
+            for (let i = 0; i <= 5; i++) {
+                const x = pad + (plotW * (i / 5));
+                ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, height - pad); ctx.stroke();
+                ctx.fillStyle = '#64748b'; ctx.font = '10px monospace';
+                ctx.fillText(((i / 5) * maxMachineZLimit).toFixed(0) + 'mm', x - 15, height - pad + 15);
+            }
+
+            const originZ = isSimulatingScan ? scanStartOrigin.z : machineZ;
+            const originY = isSimulatingScan ? scanStartOrigin.y : machineY;
+            const gridStartX = originZ - (scanWidth / 2.0);
+            const gridStartY = originY - (scanLength / 2.0);
+
+            const scanBoxZ = pad + (gridStartX / maxMachineZLimit) * plotW;
+            const scanBoxW = (scanWidth / maxMachineZLimit) * plotW;
+            const scanBoxH = (scanLength / maxMachineYLimit) * plotH;
+            const scanBoxY = pad + plotH - ((gridStartY + scanLength) / maxMachineYLimit) * plotH; 
+
+            // Dashed boundary box only shows while the scan area is being adjusted
+            if (gridVisible) {
+                ctx.strokeStyle = '#334155';
+                ctx.setLineDash([4, 4]);
+                ctx.strokeRect(scanBoxZ, scanBoxY, scanBoxW, scanBoxH);
+                ctx.setLineDash([]);
+            }
+
+            const pointsZCount = Math.floor(scanWidth / scanStep) + 1;
+            const pointsYCount = Math.floor(scanLength / scanStep) + 1;
+            
+            for (let yIdx = 0; yIdx < pointsYCount; yIdx++) {
+                for (let zIdx = 0; zIdx < pointsZCount; zIdx++) {
+                    const gridZ = gridStartX + (zIdx * scanStep);
+                    const gridY = gridStartY + (yIdx * scanStep);
+                    const canvasZ = pad + (gridZ / maxMachineZLimit) * plotW;
+                    const canvasY = pad + plotH - (gridY / maxMachineYLimit) * plotH;
+                    const pointKey = `${gridZ.toFixed(1)},${gridY.toFixed(1)}`;
+                    
+                    let isCurrentScanningPoint = false;
+                    if (isSimulatingScan && scanWaypoints.length > 0 && simulatedWaitCountdown > 0) {
+                        if (Math.abs(scanWaypoints[0].z - gridZ) < 0.1 && Math.abs(scanWaypoints[0].y - gridY) < 0.1) {
+                            isCurrentScanningPoint = true;
+                        }
+                    }
+
+                    const hasReading = scannedPoints.has(pointKey);
+
+                    // Skip empty placeholder dots unless the grid overlay is toggled on
+                    if (!hasReading && !isCurrentScanningPoint && !gridVisible) continue;
+
+                    ctx.fillStyle = isCurrentScanningPoint
+                        ? '#f59e0b'
+                        : (hasReading ? tempToColor(scannedPoints.get(pointKey)) : '#334155');
+                    ctx.beginPath();
+                    if (isCurrentScanningPoint) {
+                        ctx.arc(canvasZ, canvasY, 3 + Math.sin(Date.now() / 150) * 1.5, 0, Math.PI * 2);
+                    } else {
+                        ctx.arc(canvasZ, canvasY, hasReading ? 4 : 3, 0, Math.PI * 2);
+                    }
+                    ctx.fill();
+                }
+            }
+
+            if (userTarget) {
+                const tz = pad + (userTarget.z / maxMachineZLimit) * plotW;
+                const ty = pad + plotH - (userTarget.y / maxMachineYLimit) * plotH;
+                ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(tz - 6, ty); ctx.lineTo(tz + 6, ty); ctx.moveTo(tz, ty - 6); ctx.lineTo(tz, ty + 6); ctx.stroke();
+                ctx.beginPath(); ctx.arc(tz, ty, 10, 0, Math.PI*2); ctx.setLineDash([2, 2]); ctx.stroke(); ctx.setLineDash([]);
+            }
+
+            const headZ = pad + (machineZ / maxMachineZLimit) * plotW;
+            const headY = pad + plotH - (machineY / maxMachineYLimit) * plotH;
+
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.15)'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(pad, headY); ctx.lineTo(width - pad, headY); ctx.moveTo(headZ, pad); ctx.lineTo(headZ, height - pad); ctx.stroke();
+
+            ctx.strokeStyle = '#3b82f6';
+            ctx.fillStyle = isSimulatingScan ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.2)';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.arc(headZ, headY, 12, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(headZ, headY, 4, 0, Math.PI * 2); ctx.fill();
+        }
+
+        function mainLoop(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            const elapsedSec = (timestamp - lastTimestamp) / 1000.0;
+            lastTimestamp = timestamp;
+
+            const jogSpeed = parseFloat(document.getElementById('in-speed').value);
+            let positionChanged = false;
+
+            if (activeJogs['btn-x-fwd']) { machineX = Math.min(250, machineX + (jogSpeed * elapsedSec)); positionChanged = true; }
+            else if (activeJogs['btn-x-rev']) { machineX = Math.max(0, machineX - (jogSpeed * elapsedSec)); positionChanged = true; }
+
+            if (activeJogs['btn-a-fwd']) { machineA = (machineA + (jogSpeed * elapsedSec)) % 360; positionChanged = true; }
+            else if (activeJogs['btn-a-rev']) { machineA = (machineA - (jogSpeed * elapsedSec) + 360) % 360; positionChanged = true; }
+            
+            if (activeJogs['btn-y-fwd'] && !isSimulatingScan) { machineY = Math.min(maxMachineYLimit, machineY + (jogSpeed * elapsedSec)); positionChanged = true; }
+            else if (activeJogs['btn-y-rev'] && !isSimulatingScan) { machineY = Math.max(0, machineY - (jogSpeed * elapsedSec)); positionChanged = true; }
+            
+            if (activeJogs['btn-z-fwd'] && !isSimulatingScan) { machineZ = Math.min(maxMachineZLimit, machineZ + (jogSpeed * elapsedSec)); positionChanged = true; }
+            else if (activeJogs['btn-z-rev'] && !isSimulatingScan) { machineZ = Math.max(0, machineZ - (jogSpeed * elapsedSec)); positionChanged = true; }
+
+            if (isMovingToTarget && userTarget && !isSimulatingScan) {
+                let rZ = false, rY = false;
+                if (Math.abs(machineZ - userTarget.z) > 0.1) machineZ += Math.sign(userTarget.z - machineZ) * jogSpeed * elapsedSec;
+                else { machineZ = userTarget.z; rZ = true; }
+                if (Math.abs(machineY - userTarget.y) > 0.1) machineY += Math.sign(userTarget.y - machineY) * jogSpeed * elapsedSec;
+                else { machineY = userTarget.y; rY = true; }
+
+                if (rZ && rY) { isMovingToTarget = false; userTarget = null; printToSerial("[SYSTEM] Target reached.", "text-emerald-400"); }
+                positionChanged = true;
+            }
+
+            if (isReturningToOrigin) {
+                let rZ = false, rY = false;
+                if (Math.abs(machineZ - scanStartOrigin.z) > 0.1) machineZ += Math.sign(scanStartOrigin.z - machineZ) * jogSpeed * elapsedSec;
+                else { machineZ = scanStartOrigin.z; rZ = true; }
+                if (Math.abs(machineY - scanStartOrigin.y) > 0.1) machineY += Math.sign(scanStartOrigin.y - machineY) * jogSpeed * elapsedSec;
+                else { machineY = scanStartOrigin.y; rY = true; }
+
+                if (rZ && rY) {
+                    isReturningToOrigin = false;
+                    printToSerial("[SYSTEM] Returned to scan origin.", "text-emerald-400");
+                    document.getElementById('system-status-badge').textContent = "System Ready";
+                    document.getElementById('system-status-badge').className = "px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-xs font-semibold border border-emerald-500/20";
+                }
+                positionChanged = true;
+            }
+
+            if (isSimulatingScan) {
+                const waitTime = parseFloat(document.getElementById('in-wait').value);
+                const speedModifier = parseFloat(document.getElementById('in-sim-speed').value); 
+                currentSimulatedTimeElapsed = Math.min(totalSimulatedTimeRequired, currentSimulatedTimeElapsed + (elapsedSec * speedModifier));
+                updateProgressBar();
+
+                if (simulatedWaitCountdown > 0) {
+                    simulatedWaitCountdown -= (elapsedSec * speedModifier);
+                    if (simulatedWaitCountdown <= 0 && scanWaypoints.length > 0) {
+                        const wp = scanWaypoints[0];
+                        const dist = Math.hypot(wp.z - scanStartOrigin.z, wp.y - scanStartOrigin.y);
+                        const finalFlux = Math.max(0.0, 150.0 - (dist * 2.5) + (Math.random() * 2.0)).toFixed(2);
+                        const finalTemp = (25.0 + (Math.random() * 1.0) + (150.0 / (dist + 10))).toFixed(1);
+                        scannedPoints.set(`${wp.z.toFixed(1)},${wp.y.toFixed(1)}`, parseFloat(finalTemp));
+
+                        // Output to console
+                        printToSerial(`[LOG] Z:${wp.z.toFixed(1)} Y:${wp.y.toFixed(1)} | Flux: ${finalFlux}mT | Temp: ${finalTemp}°C`, 'text-emerald-400 font-bold');
+                        
+                        // Push exact data to our CSV array
+                        const timeStr = new Date().toTimeString().split(' ')[0];
+                        csvData.push(`${timeStr},${wp.z.toFixed(1)},${wp.y.toFixed(1)},${finalFlux},${finalTemp}`);
+                        
+                        scanWaypoints.shift();
+                        
+                        if (scanWaypoints.length === 0) {
+                            printToSerial(`[AUTO-SCAN] Grid survey complete! Returning to center origin...`, 'text-amber-400');
+                            isSimulatingScan = false;
+                            isReturningToOrigin = true;
+                            document.getElementById('btn-auto-scan').disabled = false;
+                            document.getElementById('btn-stop-scan').disabled = true;
+                            document.getElementById('system-status-badge').textContent = "Homing Active";
+                        }
+                    }
+                } else if (scanWaypoints.length > 0) {
+                    const target = scanWaypoints[0];
+                    const targetVel = jogSpeed * speedModifier;
+                    let rZ = false, rY = false;
+                    
+                    if (Math.abs(machineZ - target.z) > 0.01) {
+                        machineZ += Math.sign(target.z - machineZ) * targetVel * elapsedSec;
+                        if (Math.abs(machineZ - target.z) <= targetVel * elapsedSec) { machineZ = target.z; rZ = true; }
+                    } else rZ = true;
+                    
+                    if (Math.abs(machineY - target.y) > 0.01) {
+                        machineY += Math.sign(target.y - machineY) * targetVel * elapsedSec;
+                        if (Math.abs(machineY - target.y) <= targetVel * elapsedSec) { machineY = target.y; rY = true; }
+                    } else rY = true;
+                    
+                    if (rZ && rY) {
+                        machineZ = target.z; machineY = target.y;
+                        simulatedWaitCountdown = waitTime;
+                    }
+                    positionChanged = true;
+                }
+            }
+
+            if (positionChanged) {
+                document.getElementById('pos-x').textContent = machineX.toFixed(2);
+                document.getElementById('pos-y').textContent = machineY.toFixed(2);
+                document.getElementById('pos-z').textContent = machineZ.toFixed(2);
+                document.getElementById('pos-a').textContent = machineA.toFixed(2);
+                if (isSimulatingScan) {
+                    const dist = Math.hypot(machineZ - scanStartOrigin.z, machineY - scanStartOrigin.y);
+                    document.getElementById('sens-flux').textContent = Math.max(0.0, 150.0 - (dist * 2.5) + (Math.random() * 5.0)).toFixed(2);
+                    document.getElementById('sens-temp').textContent = (25.0 + (Math.random() * 2.0) + (150.0 / (dist + 10))).toFixed(1);
+                }
+            }
+
+            drawVirtualMachine();
+            requestAnimationFrame(mainLoop);
+        }
+
+        function updateProgressBar() {
+            if (totalSimulatedTimeRequired === 0) return;
+            const percent = (currentSimulatedTimeElapsed / totalSimulatedTimeRequired) * 100;
+            document.getElementById('scan-progress-bar').style.width = `${Math.min(100, percent)}%`;
+            document.getElementById('scan-time-remaining').textContent = formatSeconds(Math.max(0, totalSimulatedTimeRequired - currentSimulatedTimeElapsed)) + ' remaining';
+        }
+
+        document.getElementById('btn-auto-scan').addEventListener('click', () => {
+            if (isSimulatingScan || isMovingToTarget || isReturningToOrigin) return;
+
+            const jogSpeed = parseFloat(document.getElementById('in-speed').value);
+            const scanWidth = parseFloat(document.getElementById('in-width').value);
+            const scanLength = parseFloat(document.getElementById('in-length').value);
+            const scanStep = parseFloat(document.getElementById('in-step').value);
+            const waitTime = parseFloat(document.getElementById('in-wait').value);
+            
+            const pointsZCount = Math.floor(scanWidth / scanStep) + 1;
+            const pointsYCount = Math.floor(scanLength / scanStep) + 1;
+            totalSimulatedTimeRequired = (((pointsYCount * scanWidth) + scanLength) / jogSpeed) + ((pointsZCount * pointsYCount) * waitTime);
+            currentSimulatedTimeElapsed = 0;
+            scannedPoints.clear();
+            
+            scanStartOrigin = { z: machineZ, y: machineY };
+            const gridStartX = scanStartOrigin.z - (scanWidth / 2.0);
+            const gridStartY = scanStartOrigin.y - (scanLength / 2.0);
+            
+            scanWaypoints = [];
+            let movingRight = true;
+            for (let yIdx = 0; yIdx < pointsYCount; yIdx++) {
+                const wpY = gridStartY + (yIdx * scanStep);
+                if (movingRight) {
+                    for (let zIdx = 0; zIdx < pointsZCount; zIdx++) scanWaypoints.push({ z: gridStartX + (zIdx * scanStep), y: wpY });
+                } else {
+                    for (let zIdx = pointsZCount - 1; zIdx >= 0; zIdx--) scanWaypoints.push({ z: gridStartX + (zIdx * scanStep), y: wpY });
+                }
+                movingRight = !movingRight;
+            }
+
+            document.getElementById('btn-auto-scan').disabled = true;
+            document.getElementById('btn-stop-scan').disabled = false;
+            document.getElementById('system-status-badge').textContent = "Scanning Grid";
+            document.getElementById('system-status-badge').className = "px-3 py-1 bg-amber-500/10 text-amber-400 rounded-full text-xs font-semibold border border-amber-500/20";
+            
+            isSimulatingScan = true; simulatedWaitCountdown = 0;
+        });
+
+        document.getElementById('btn-stop-scan').addEventListener('click', () => {
+            isSimulatingScan = false; isMovingToTarget = false; isReturningToOrigin = false;
+            scanWaypoints = [];
+            document.getElementById('btn-auto-scan').disabled = false;
+            document.getElementById('btn-stop-scan').disabled = true;
+            document.getElementById('system-status-badge').textContent = "System Aborted";
+            document.getElementById('system-status-badge').className = "px-3 py-1 bg-red-500/10 text-red-400 rounded-full text-xs font-semibold border border-red-500/20";
+        });
+
+        canvas.addEventListener('mousedown', (e) => {
+            if (isSimulatingScan || isReturningToOrigin) return;
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+            const plotW = canvas.width - 80, plotH = canvas.height - 80;
+            
+            let clickZ = ((mouseX - 40) / plotW) * maxMachineZLimit;
+            let clickY = ((40 + plotH - mouseY) / plotH) * maxMachineYLimit;
+            userTarget = { 
+                z: Math.max(0, Math.min(maxMachineZLimit, clickZ)), 
+                y: Math.max(0, Math.min(maxMachineYLimit, clickY)) 
+            };
+        });
+
+        document.getElementById('btn-go-target').addEventListener('click', () => {
+            if (!isSimulatingScan && !isReturningToOrigin && userTarget) isMovingToTarget = true;
+        });
+
+        // Download CSV Logic
+        document.getElementById('btn-download-log').addEventListener('click', () => {
+            if (csvData.length <= 1) {
+                alert("No scan data available to download yet.");
+                return;
+            }
+            const blob = new Blob([csvData.join('\n')], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            
+            const dateStr = new Date().toISOString().replace(/T/, '_').replace(/:/g, '-').split('.')[0];
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `cnc_scan_data_${dateStr}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            printToSerial("[SYSTEM] CSV Data downloaded successfully.", "text-blue-400");
+        });
+
+        document.getElementById('btn-clear-console').addEventListener('click', () => {
+            document.getElementById('serial-terminal').innerHTML = '';
+            csvData = ["Time,Z_Pos_mm,Y_Pos_mm,Flux_mT,Temp_C"]; // Reset array and keep headers
+            printToSerial("[SYSTEM LOGS CLEARED]", "text-slate-500");
+        });
+
+        ['in-speed', 'in-width', 'in-length', 'in-step', 'in-wait', 'in-sim-speed'].forEach(id => {
+            document.getElementById(id).addEventListener('input', computeCalculations);
+        });
+
+        ['in-width', 'in-length', 'in-step'].forEach(id => {
+            document.getElementById(id).addEventListener('input', showGridTemporarily);
+        });
+        
+        ['btn-x-fwd', 'btn-x-rev', 'btn-y-fwd', 'btn-y-rev', 'btn-a-fwd', 'btn-a-rev', 'btn-z-fwd', 'btn-z-rev'].forEach(id => {
+            const btn = document.getElementById(id);
+            const start = (e) => { e.preventDefault(); if (!isSimulatingScan) activeJogs[id] = true; };
+            const end = (e) => { e.preventDefault(); activeJogs[id] = false; };
+            btn.addEventListener('mousedown', start); btn.addEventListener('mouseup', end); btn.addEventListener('mouseleave', end);
+            btn.addEventListener('touchstart', start); btn.addEventListener('touchend', end); btn.addEventListener('touchcancel', end);
+        });
+
+        computeCalculations();
+        requestAnimationFrame(mainLoop);
+    </script>
+</body>
+</html>
