@@ -49,15 +49,15 @@
         <div class="bg-slate-900 p-6 rounded-2xl shadow-xl border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
                 <h1 class="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
-                    <span class="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></span>
+                    <span id="ws-dot" class="w-3 h-3 bg-amber-500 rounded-full animate-pulse"></span>
                     4-Axis Scanner Control Panel
                 </h1>
-                <p class="text-slate-400 mt-1">Real-time simulator, switch diagnostician, and math parser</p>
+                <p class="text-slate-400 mt-1">Live wireless control &mdash; switch diagnostician and math parser</p>
             </div>
             <div class="flex flex-wrap gap-2">
                 <span class="px-3 py-1 bg-blue-500/10 text-blue-400 rounded-full text-xs font-semibold border border-blue-500/20">Mega Pins 22-32</span>
                 <span class="px-3 py-1 bg-indigo-500/10 text-indigo-400 rounded-full text-xs font-semibold border border-indigo-500/20">1/8 Microstepping</span>
-                <span id="system-status-badge" class="px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-xs font-semibold border border-emerald-500/20">System Ready</span>
+                <span id="system-status-badge" class="px-3 py-1 bg-slate-500/10 text-slate-400 rounded-full text-xs font-semibold border border-slate-500/20">Connecting...</span>
             </div>
         </div>
 
@@ -71,11 +71,11 @@
                 <div class="bg-slate-900 p-6 rounded-2xl shadow-xl border border-slate-800 relative overflow-hidden">
                     <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
                     <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-lg font-semibold text-white">Physical Control Switches</h2>
-                        <span class="text-[10px] code-font px-2 py-0.5 bg-slate-800 text-slate-400 rounded">INPUT_PULLUP</span>
+                        <h2 class="text-lg font-semibold text-white">Wireless Control Switches</h2>
+                        <span class="text-[10px] code-font px-2 py-0.5 bg-slate-800 text-slate-400 rounded">WebSocket</span>
                     </div>
                     
-                    <p class="text-xs text-slate-400 mb-6">Interactive button layout representing the mechanical switches connected to your Arduino Mega. Click and hold to test axis travel!</p>
+                    <p class="text-xs text-slate-400 mb-6">These buttons send real jog commands to the ESP32, which relays them to the Mega. Physical switches on the machine always take priority.</p>
                     
                     <div class="space-y-4">
                         <!-- X Axis Switches -->
@@ -183,13 +183,6 @@
                             </div>
                             <input type="range" id="in-wait" min="1" max="60" step="1" value="15">
                         </div>
-                        <div>
-                            <div class="flex justify-between text-sm font-medium text-slate-300 mb-2">
-                                <span>Dashboard Simulation Speed</span>
-                                <span class="text-indigo-400 font-bold"><span id="val-sim-speed">50</span>x</span>
-                            </div>
-                            <input type="range" id="in-sim-speed" min="1" max="100" step="1" value="50">
-                        </div>
                     </div>
                 </div>
             </div>
@@ -240,7 +233,7 @@
                     <div class="flex items-center justify-between mb-3">
                         <div class="flex items-center gap-2">
                             <span class="w-2.5 h-2.5 bg-sky-500 rounded-full animate-ping"></span>
-                            <h2 class="text-sm font-semibold text-white uppercase tracking-wider">Arduino Console</h2>
+                            <h2 class="text-sm font-semibold text-white uppercase tracking-wider">System Console</h2>
                         </div>
                         <div class="flex gap-4">
                             <button id="btn-download-log" class="text-xs text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1 transition-colors">
@@ -292,37 +285,37 @@
     </div>
 
     <script>
-        // Constants & Config
-        const stepsPerRev = 200.0;
-        const microsteps = 8.0;
-        const pitchXYZ = 5.0;
-        const pitchA = 1.0;
+        // ============================================================
+        // CONFIG - change ESP32_IP if you switch the ESP32 to campus WiFi mode
+        // ============================================================
+        const ESP32_IP = "192.168.4.1"; // default AP IP when ESP32 hosts its own WiFi
+        const WS_URL = `ws://${ESP32_IP}/ws`;
 
         const maxMachineYLimit = 250.0;
         const maxMachineZLimit = 250.0;
 
-        // Machine State
-        let machineX = 0.0, machineY = 0.0, machineZ = 0.0, machineA = 0.0;
+        // Live machine state - populated entirely from the ESP32 over WebSocket
+        let machineX = 0, machineY = 0, machineZ = 0, machineA = 0;
+        let liveFlux = 0, liveTemp = 25.0;
+        let ws = null;
+
+        // Scan state machine (real hardware feedback drives every transition)
         let isSimulatingScan = false;
-        let simulatedWaitCountdown = 0.0;
-        let lastTimestamp = 0;
-        
-        // Target & Scanning
+        let scanState = "idle"; // idle | moving | waiting | returning
         let scanWaypoints = [];
         let scanStartOrigin = { z: 0, y: 0 };
-        let userTarget = null;
-        let isMovingToTarget = false;
-        let isReturningToOrigin = false;
+        let waitDeadline = 0;
         let scannedPoints = new Map(); // pointKey -> temperature (°C)
         let totalSimulatedTimeRequired = 0;
-        let currentSimulatedTimeElapsed = 0;
-        let activeJogs = {};
+        let scanStartTimestamp = 0;
 
-        // Grid overlay only shows briefly while the user is adjusting scan-area sliders
+        let userTarget = null;
+        let isMovingToTarget = false;
+
+        // Grid overlay only shows briefly while adjusting scan-area sliders
         let gridVisible = false;
         let gridHideTimer = null;
-        
-        // Structured CSV Data Array (Initialize with Headers)
+
         let csvData = ["Time,Z_Pos_mm,Y_Pos_mm,Flux_mT,Temp_C"];
 
         const canvas = document.getElementById('viz-canvas');
@@ -332,7 +325,6 @@
             const terminal = document.getElementById('serial-terminal');
             const newLog = document.createElement('div');
             if (styleClass) newLog.className = styleClass;
-            
             const now = new Date();
             const timeStr = `[${now.toTimeString().split(' ')[0]}] `;
             newLog.textContent = timeStr + text;
@@ -340,10 +332,58 @@
             terminal.scrollTop = terminal.scrollHeight;
         }
 
-        function showGridTemporarily() {
-            gridVisible = true;
-            if (gridHideTimer) clearTimeout(gridHideTimer);
-            gridHideTimer = setTimeout(() => { gridVisible = false; }, 1500);
+        // ------------------------------------------------------------
+        // WebSocket link to the ESP32
+        // ------------------------------------------------------------
+        function connectWebSocket() {
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                document.getElementById('ws-dot').className = "w-3 h-3 bg-emerald-500 rounded-full animate-pulse";
+                setSystemStatus("System Ready", "emerald");
+                printToSerial("[SYSTEM] Connected to ESP32.", "text-blue-400");
+            };
+
+            ws.onclose = () => {
+                document.getElementById('ws-dot').className = "w-3 h-3 bg-red-500 rounded-full animate-pulse";
+                setSystemStatus("Disconnected", "red");
+                printToSerial("[SYSTEM] Lost connection to ESP32. Retrying...", "text-red-400");
+                setTimeout(connectWebSocket, 2000);
+            };
+
+            ws.onerror = () => { ws.close(); };
+
+            ws.onmessage = (event) => {
+                let data;
+                try { data = JSON.parse(event.data); } catch (e) { return; }
+                if (data.x !== undefined) machineX = data.x;
+                if (data.y !== undefined) machineY = data.y;
+                if (data.z !== undefined) machineZ = data.z;
+                if (data.a !== undefined) machineA = data.a;
+                if (data.flux !== undefined) liveFlux = data.flux;
+                if (data.temp !== undefined) liveTemp = data.temp;
+                updateReadouts();
+                handleScanProgress();
+            };
+        }
+
+        function sendCmd(obj) {
+            if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+        }
+
+        function setSystemStatus(text, color) {
+            const badge = document.getElementById('system-status-badge');
+            badge.textContent = text;
+            badge.className = `px-3 py-1 bg-${color}-500/10 text-${color}-400 rounded-full text-xs font-semibold border border-${color}-500/20`;
+        }
+
+        function updateReadouts() {
+            document.getElementById('pos-x').textContent = machineX.toFixed(2);
+            document.getElementById('pos-y').textContent = machineY.toFixed(2);
+            document.getElementById('pos-z').textContent = machineZ.toFixed(2);
+            document.getElementById('pos-a').textContent = machineA.toFixed(2);
+            document.getElementById('sens-flux').textContent = liveFlux.toFixed(2);
+            document.getElementById('sens-temp').textContent = liveTemp.toFixed(1);
         }
 
         // Maps a temperature reading to a blue -> emerald -> amber -> red gradient
@@ -351,10 +391,10 @@
             const minT = 24, maxT = 42;
             const t = Math.max(0, Math.min(1, (temp - minT) / (maxT - minT)));
             const stops = [
-                { t: 0.0,  c: [59, 130, 246] },  // cool blue
-                { t: 0.33, c: [16, 185, 129] },  // emerald
-                { t: 0.66, c: [245, 158, 11] },  // amber
-                { t: 1.0,  c: [239, 68, 68] }    // hot red
+                { t: 0.0,  c: [59, 130, 246] },
+                { t: 0.33, c: [16, 185, 129] },
+                { t: 0.66, c: [245, 158, 11] },
+                { t: 1.0,  c: [239, 68, 68] }
             ];
             for (let i = 0; i < stops.length - 1; i++) {
                 if (t >= stops[i].t && t <= stops[i + 1].t) {
@@ -372,14 +412,12 @@
             const scanLength = parseFloat(document.getElementById('in-length').value);
             const scanStep = parseFloat(document.getElementById('in-step').value);
             const waitTime = parseFloat(document.getElementById('in-wait').value);
-            const simSpeed = parseFloat(document.getElementById('in-sim-speed').value);
 
             document.getElementById('val-speed').textContent = jogSpeed.toFixed(1);
             document.getElementById('val-width').textContent = scanWidth;
             document.getElementById('val-length').textContent = scanLength;
             document.getElementById('val-step').textContent = scanStep;
             document.getElementById('val-wait').textContent = waitTime;
-            document.getElementById('val-sim-speed').textContent = simSpeed;
 
             const pointsZ = Math.floor(scanWidth / scanStep) + 1;
             const pointsY = Math.floor(scanLength / scanStep) + 1;
@@ -445,7 +483,6 @@
             const scanBoxH = (scanLength / maxMachineYLimit) * plotH;
             const scanBoxY = pad + plotH - ((gridStartY + scanLength) / maxMachineYLimit) * plotH; 
 
-            // Dashed boundary box only shows while the scan area is being adjusted
             if (gridVisible) {
                 ctx.strokeStyle = '#334155';
                 ctx.setLineDash([4, 4]);
@@ -465,7 +502,7 @@
                     const pointKey = `${gridZ.toFixed(1)},${gridY.toFixed(1)}`;
                     
                     let isCurrentScanningPoint = false;
-                    if (isSimulatingScan && scanWaypoints.length > 0 && simulatedWaitCountdown > 0) {
+                    if (isSimulatingScan && scanState === "waiting" && scanWaypoints.length > 0) {
                         if (Math.abs(scanWaypoints[0].z - gridZ) < 0.1 && Math.abs(scanWaypoints[0].y - gridY) < 0.1) {
                             isCurrentScanningPoint = true;
                         }
@@ -473,7 +510,6 @@
 
                     const hasReading = scannedPoints.has(pointKey);
 
-                    // Skip empty placeholder dots unless the grid overlay is toggled on
                     if (!hasReading && !isCurrentScanningPoint && !gridVisible) continue;
 
                     ctx.fillStyle = isCurrentScanningPoint
@@ -510,134 +546,77 @@
             ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(headZ, headY, 4, 0, Math.PI * 2); ctx.fill();
         }
 
-        function mainLoop(timestamp) {
-            if (!lastTimestamp) lastTimestamp = timestamp;
-            const elapsedSec = (timestamp - lastTimestamp) / 1000.0;
-            lastTimestamp = timestamp;
-
-            const jogSpeed = parseFloat(document.getElementById('in-speed').value);
-            let positionChanged = false;
-
-            if (activeJogs['btn-x-fwd']) { machineX = Math.min(250, machineX + (jogSpeed * elapsedSec)); positionChanged = true; }
-            else if (activeJogs['btn-x-rev']) { machineX = Math.max(0, machineX - (jogSpeed * elapsedSec)); positionChanged = true; }
-
-            if (activeJogs['btn-a-fwd']) { machineA = (machineA + (jogSpeed * elapsedSec)) % 360; positionChanged = true; }
-            else if (activeJogs['btn-a-rev']) { machineA = (machineA - (jogSpeed * elapsedSec) + 360) % 360; positionChanged = true; }
-            
-            if (activeJogs['btn-y-fwd'] && !isSimulatingScan) { machineY = Math.min(maxMachineYLimit, machineY + (jogSpeed * elapsedSec)); positionChanged = true; }
-            else if (activeJogs['btn-y-rev'] && !isSimulatingScan) { machineY = Math.max(0, machineY - (jogSpeed * elapsedSec)); positionChanged = true; }
-            
-            if (activeJogs['btn-z-fwd'] && !isSimulatingScan) { machineZ = Math.min(maxMachineZLimit, machineZ + (jogSpeed * elapsedSec)); positionChanged = true; }
-            else if (activeJogs['btn-z-rev'] && !isSimulatingScan) { machineZ = Math.max(0, machineZ - (jogSpeed * elapsedSec)); positionChanged = true; }
-
-            if (isMovingToTarget && userTarget && !isSimulatingScan) {
-                let rZ = false, rY = false;
-                if (Math.abs(machineZ - userTarget.z) > 0.1) machineZ += Math.sign(userTarget.z - machineZ) * jogSpeed * elapsedSec;
-                else { machineZ = userTarget.z; rZ = true; }
-                if (Math.abs(machineY - userTarget.y) > 0.1) machineY += Math.sign(userTarget.y - machineY) * jogSpeed * elapsedSec;
-                else { machineY = userTarget.y; rY = true; }
-
-                if (rZ && rY) { isMovingToTarget = false; userTarget = null; printToSerial("[SYSTEM] Target reached.", "text-emerald-400"); }
-                positionChanged = true;
-            }
-
-            if (isReturningToOrigin) {
-                let rZ = false, rY = false;
-                if (Math.abs(machineZ - scanStartOrigin.z) > 0.1) machineZ += Math.sign(scanStartOrigin.z - machineZ) * jogSpeed * elapsedSec;
-                else { machineZ = scanStartOrigin.z; rZ = true; }
-                if (Math.abs(machineY - scanStartOrigin.y) > 0.1) machineY += Math.sign(scanStartOrigin.y - machineY) * jogSpeed * elapsedSec;
-                else { machineY = scanStartOrigin.y; rY = true; }
-
-                if (rZ && rY) {
-                    isReturningToOrigin = false;
-                    printToSerial("[SYSTEM] Returned to scan origin.", "text-emerald-400");
-                    document.getElementById('system-status-badge').textContent = "System Ready";
-                    document.getElementById('system-status-badge').className = "px-3 py-1 bg-emerald-500/10 text-emerald-400 rounded-full text-xs font-semibold border border-emerald-500/20";
-                }
-                positionChanged = true;
-            }
-
-            if (isSimulatingScan) {
-                const waitTime = parseFloat(document.getElementById('in-wait').value);
-                const speedModifier = parseFloat(document.getElementById('in-sim-speed').value); 
-                currentSimulatedTimeElapsed = Math.min(totalSimulatedTimeRequired, currentSimulatedTimeElapsed + (elapsedSec * speedModifier));
-                updateProgressBar();
-
-                if (simulatedWaitCountdown > 0) {
-                    simulatedWaitCountdown -= (elapsedSec * speedModifier);
-                    if (simulatedWaitCountdown <= 0 && scanWaypoints.length > 0) {
-                        const wp = scanWaypoints[0];
-                        const dist = Math.hypot(wp.z - scanStartOrigin.z, wp.y - scanStartOrigin.y);
-                        const finalFlux = Math.max(0.0, 150.0 - (dist * 2.5) + (Math.random() * 2.0)).toFixed(2);
-                        const finalTemp = (25.0 + (Math.random() * 1.0) + (150.0 / (dist + 10))).toFixed(1);
-                        scannedPoints.set(`${wp.z.toFixed(1)},${wp.y.toFixed(1)}`, parseFloat(finalTemp));
-
-                        // Output to console
-                        printToSerial(`[LOG] Z:${wp.z.toFixed(1)} Y:${wp.y.toFixed(1)} | Flux: ${finalFlux}mT | Temp: ${finalTemp}°C`, 'text-emerald-400 font-bold');
-                        
-                        // Push exact data to our CSV array
-                        const timeStr = new Date().toTimeString().split(' ')[0];
-                        csvData.push(`${timeStr},${wp.z.toFixed(1)},${wp.y.toFixed(1)},${finalFlux},${finalTemp}`);
-                        
-                        scanWaypoints.shift();
-                        
-                        if (scanWaypoints.length === 0) {
-                            printToSerial(`[AUTO-SCAN] Grid survey complete! Returning to center origin...`, 'text-amber-400');
-                            isSimulatingScan = false;
-                            isReturningToOrigin = true;
-                            document.getElementById('btn-auto-scan').disabled = false;
-                            document.getElementById('btn-stop-scan').disabled = true;
-                            document.getElementById('system-status-badge').textContent = "Homing Active";
-                        }
-                    }
-                } else if (scanWaypoints.length > 0) {
-                    const target = scanWaypoints[0];
-                    const targetVel = jogSpeed * speedModifier;
-                    let rZ = false, rY = false;
-                    
-                    if (Math.abs(machineZ - target.z) > 0.01) {
-                        machineZ += Math.sign(target.z - machineZ) * targetVel * elapsedSec;
-                        if (Math.abs(machineZ - target.z) <= targetVel * elapsedSec) { machineZ = target.z; rZ = true; }
-                    } else rZ = true;
-                    
-                    if (Math.abs(machineY - target.y) > 0.01) {
-                        machineY += Math.sign(target.y - machineY) * targetVel * elapsedSec;
-                        if (Math.abs(machineY - target.y) <= targetVel * elapsedSec) { machineY = target.y; rY = true; }
-                    } else rY = true;
-                    
-                    if (rZ && rY) {
-                        machineZ = target.z; machineY = target.y;
-                        simulatedWaitCountdown = waitTime;
-                    }
-                    positionChanged = true;
-                }
-            }
-
-            if (positionChanged) {
-                document.getElementById('pos-x').textContent = machineX.toFixed(2);
-                document.getElementById('pos-y').textContent = machineY.toFixed(2);
-                document.getElementById('pos-z').textContent = machineZ.toFixed(2);
-                document.getElementById('pos-a').textContent = machineA.toFixed(2);
-                if (isSimulatingScan) {
-                    const dist = Math.hypot(machineZ - scanStartOrigin.z, machineY - scanStartOrigin.y);
-                    document.getElementById('sens-flux').textContent = Math.max(0.0, 150.0 - (dist * 2.5) + (Math.random() * 5.0)).toFixed(2);
-                    document.getElementById('sens-temp').textContent = (25.0 + (Math.random() * 2.0) + (150.0 / (dist + 10))).toFixed(1);
-                }
-            }
-
+        function renderLoop() {
             drawVirtualMachine();
-            requestAnimationFrame(mainLoop);
+            requestAnimationFrame(renderLoop);
         }
 
         function updateProgressBar() {
-            if (totalSimulatedTimeRequired === 0) return;
-            const percent = (currentSimulatedTimeElapsed / totalSimulatedTimeRequired) * 100;
+            if (!isSimulatingScan || totalSimulatedTimeRequired === 0) return;
+            const elapsedSec = (performance.now() - scanStartTimestamp) / 1000;
+            const percent = (elapsedSec / totalSimulatedTimeRequired) * 100;
             document.getElementById('scan-progress-bar').style.width = `${Math.min(100, percent)}%`;
-            document.getElementById('scan-time-remaining').textContent = formatSeconds(Math.max(0, totalSimulatedTimeRequired - currentSimulatedTimeElapsed)) + ' remaining';
+            document.getElementById('scan-time-remaining').textContent = formatSeconds(Math.max(0, totalSimulatedTimeRequired - elapsedSec)) + ' remaining';
+        }
+
+        // ------------------------------------------------------------
+        // Scan state machine - driven entirely by real position feedback
+        // ------------------------------------------------------------
+        function handleScanProgress() {
+            updateProgressBar();
+
+            if (isMovingToTarget && userTarget) {
+                if (Math.abs(machineZ - userTarget.z) < 0.3 && Math.abs(machineY - userTarget.y) < 0.3) {
+                    isMovingToTarget = false;
+                    printToSerial("[SYSTEM] Target reached.", "text-emerald-400");
+                }
+            }
+
+            if (!isSimulatingScan) return;
+
+            if (scanState === "moving") {
+                const wp = scanWaypoints[0];
+                if (Math.abs(machineZ - wp.z) < 0.3 && Math.abs(machineY - wp.y) < 0.3) {
+                    scanState = "waiting";
+                    const waitTime = parseFloat(document.getElementById('in-wait').value);
+                    waitDeadline = performance.now() + waitTime * 1000;
+                }
+            } else if (scanState === "waiting") {
+                if (performance.now() >= waitDeadline) {
+                    const wp = scanWaypoints.shift();
+                    scannedPoints.set(`${wp.z.toFixed(1)},${wp.y.toFixed(1)}`, liveTemp);
+                    printToSerial(`[LOG] Z:${wp.z.toFixed(1)} Y:${wp.y.toFixed(1)} | Flux: ${liveFlux.toFixed(2)}mT | Temp: ${liveTemp.toFixed(1)}°C`, 'text-emerald-400 font-bold');
+                    const timeStr = new Date().toTimeString().split(' ')[0];
+                    csvData.push(`${timeStr},${wp.z.toFixed(1)},${wp.y.toFixed(1)},${liveFlux.toFixed(2)},${liveTemp.toFixed(1)}`);
+                    advanceToNextWaypoint();
+                }
+            } else if (scanState === "returning") {
+                if (Math.abs(machineZ - scanStartOrigin.z) < 0.3 && Math.abs(machineY - scanStartOrigin.y) < 0.3) {
+                    isSimulatingScan = false;
+                    scanState = "idle";
+                    printToSerial("[SYSTEM] Returned to scan origin.", "text-emerald-400");
+                    setSystemStatus("System Ready", "emerald");
+                    document.getElementById('btn-auto-scan').disabled = false;
+                    document.getElementById('btn-stop-scan').disabled = true;
+                }
+            }
+        }
+
+        function advanceToNextWaypoint() {
+            if (scanWaypoints.length === 0) {
+                scanState = "returning";
+                sendCmd({ cmd: "goto", y: scanStartOrigin.y, z: scanStartOrigin.z });
+                printToSerial("[AUTO-SCAN] Grid survey complete! Returning to origin...", "text-amber-400");
+                setSystemStatus("Homing Active", "amber");
+                return;
+            }
+            scanState = "moving";
+            const wp = scanWaypoints[0];
+            sendCmd({ cmd: "goto", y: wp.y, z: wp.z });
         }
 
         document.getElementById('btn-auto-scan').addEventListener('click', () => {
-            if (isSimulatingScan || isMovingToTarget || isReturningToOrigin) return;
+            if (scanState !== "idle") return;
 
             const jogSpeed = parseFloat(document.getElementById('in-speed').value);
             const scanWidth = parseFloat(document.getElementById('in-width').value);
@@ -648,7 +627,7 @@
             const pointsZCount = Math.floor(scanWidth / scanStep) + 1;
             const pointsYCount = Math.floor(scanLength / scanStep) + 1;
             totalSimulatedTimeRequired = (((pointsYCount * scanWidth) + scanLength) / jogSpeed) + ((pointsZCount * pointsYCount) * waitTime);
-            currentSimulatedTimeElapsed = 0;
+            scanStartTimestamp = performance.now();
             scannedPoints.clear();
             
             scanStartOrigin = { z: machineZ, y: machineY };
@@ -669,23 +648,24 @@
 
             document.getElementById('btn-auto-scan').disabled = true;
             document.getElementById('btn-stop-scan').disabled = false;
-            document.getElementById('system-status-badge').textContent = "Scanning Grid";
-            document.getElementById('system-status-badge').className = "px-3 py-1 bg-amber-500/10 text-amber-400 rounded-full text-xs font-semibold border border-amber-500/20";
-            
-            isSimulatingScan = true; simulatedWaitCountdown = 0;
+            setSystemStatus("Scanning Grid", "amber");
+
+            isSimulatingScan = true;
+            advanceToNextWaypoint();
         });
 
         document.getElementById('btn-stop-scan').addEventListener('click', () => {
-            isSimulatingScan = false; isMovingToTarget = false; isReturningToOrigin = false;
+            isSimulatingScan = false;
+            scanState = "idle";
             scanWaypoints = [];
+            sendCmd({ cmd: "stop" });
             document.getElementById('btn-auto-scan').disabled = false;
             document.getElementById('btn-stop-scan').disabled = true;
-            document.getElementById('system-status-badge').textContent = "System Aborted";
-            document.getElementById('system-status-badge').className = "px-3 py-1 bg-red-500/10 text-red-400 rounded-full text-xs font-semibold border border-red-500/20";
+            setSystemStatus("System Aborted", "red");
         });
 
         canvas.addEventListener('mousedown', (e) => {
-            if (isSimulatingScan || isReturningToOrigin) return;
+            if (scanState !== "idle") return;
             const rect = canvas.getBoundingClientRect();
             const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
             const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
@@ -700,8 +680,38 @@
         });
 
         document.getElementById('btn-go-target').addEventListener('click', () => {
-            if (!isSimulatingScan && !isReturningToOrigin && userTarget) isMovingToTarget = true;
+            if (scanState !== "idle" || isMovingToTarget || !userTarget) return;
+            sendCmd({ cmd: "goto", y: userTarget.y, z: userTarget.z });
+            isMovingToTarget = true;
+            printToSerial(`[SYSTEM] Moving to Z:${userTarget.z.toFixed(1)} Y:${userTarget.y.toFixed(1)}`, "text-blue-400");
         });
+
+        // Jog buttons - hold to jog, release to stop, all sent live over WebSocket
+        const axisMap = {
+            'btn-x-fwd': ['X', 'F'], 'btn-x-rev': ['X', 'R'],
+            'btn-y-fwd': ['Y', 'F'], 'btn-y-rev': ['Y', 'R'],
+            'btn-z-fwd': ['Z', 'F'], 'btn-z-rev': ['Z', 'R'],
+            'btn-a-fwd': ['A', 'F'], 'btn-a-rev': ['A', 'R'],
+        };
+        Object.keys(axisMap).forEach(id => {
+            const [axis, dir] = axisMap[id];
+            const btn = document.getElementById(id);
+            const start = (e) => { e.preventDefault(); if (scanState === "idle") sendCmd({ cmd: "jog", axis, dir }); };
+            const end   = (e) => { e.preventDefault(); sendCmd({ cmd: "jog", axis, dir: "S" }); };
+            btn.addEventListener('mousedown', start); btn.addEventListener('mouseup', end); btn.addEventListener('mouseleave', end);
+            btn.addEventListener('touchstart', start); btn.addEventListener('touchend', end); btn.addEventListener('touchcancel', end);
+        });
+
+        // Push the jog-speed slider value to the hardware once you let go of it
+        document.getElementById('in-speed').addEventListener('change', () => {
+            sendCmd({ cmd: "setSpeed", value: parseFloat(document.getElementById('in-speed').value) });
+        });
+
+        function showGridTemporarily() {
+            gridVisible = true;
+            if (gridHideTimer) clearTimeout(gridHideTimer);
+            gridHideTimer = setTimeout(() => { gridVisible = false; }, 1500);
+        }
 
         // Download CSV Logic
         document.getElementById('btn-download-log').addEventListener('click', () => {
@@ -711,7 +721,6 @@
             }
             const blob = new Blob([csvData.join('\n')], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
-            
             const dateStr = new Date().toISOString().replace(/T/, '_').replace(/:/g, '-').split('.')[0];
             const a = document.createElement('a');
             a.href = url;
@@ -725,28 +734,21 @@
 
         document.getElementById('btn-clear-console').addEventListener('click', () => {
             document.getElementById('serial-terminal').innerHTML = '';
-            csvData = ["Time,Z_Pos_mm,Y_Pos_mm,Flux_mT,Temp_C"]; // Reset array and keep headers
+            csvData = ["Time,Z_Pos_mm,Y_Pos_mm,Flux_mT,Temp_C"];
             printToSerial("[SYSTEM LOGS CLEARED]", "text-slate-500");
         });
 
-        ['in-speed', 'in-width', 'in-length', 'in-step', 'in-wait', 'in-sim-speed'].forEach(id => {
+        ['in-speed', 'in-width', 'in-length', 'in-step', 'in-wait'].forEach(id => {
             document.getElementById(id).addEventListener('input', computeCalculations);
         });
 
         ['in-width', 'in-length', 'in-step'].forEach(id => {
             document.getElementById(id).addEventListener('input', showGridTemporarily);
         });
-        
-        ['btn-x-fwd', 'btn-x-rev', 'btn-y-fwd', 'btn-y-rev', 'btn-a-fwd', 'btn-a-rev', 'btn-z-fwd', 'btn-z-rev'].forEach(id => {
-            const btn = document.getElementById(id);
-            const start = (e) => { e.preventDefault(); if (!isSimulatingScan) activeJogs[id] = true; };
-            const end = (e) => { e.preventDefault(); activeJogs[id] = false; };
-            btn.addEventListener('mousedown', start); btn.addEventListener('mouseup', end); btn.addEventListener('mouseleave', end);
-            btn.addEventListener('touchstart', start); btn.addEventListener('touchend', end); btn.addEventListener('touchcancel', end);
-        });
 
         computeCalculations();
-        requestAnimationFrame(mainLoop);
+        connectWebSocket();
+        requestAnimationFrame(renderLoop);
     </script>
 </body>
 </html>
