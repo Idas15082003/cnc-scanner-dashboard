@@ -17,11 +17,17 @@
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        
+        /* Controller Button Styles */
+        .dpad-btn { width: 60px; height: 60px; background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; color: white; font-weight: bold; font-size: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.1s; user-select: none; touch-action: none; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3); }
+        .dpad-btn:active { background-color: #2563eb; transform: scale(0.95); box-shadow: none; border-color: #3b82f6; }
+        .side-btn { background-color: #1e293b; border: 1px solid #334155; border-radius: 8px; color: white; font-weight: bold; font-size: 12px; padding: 10px 16px; transition: all 0.1s; user-select: none; touch-action: none; cursor: pointer; text-align: center; width: 100%; }
+        .side-btn:active { background-color: #2563eb; transform: scale(0.95); border-color: #3b82f6; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-200 min-h-screen p-3 sm:p-6">
 
-    <div class="max-w-6xl mx-auto space-y-6">
+    <div class="max-w-7xl mx-auto space-y-6">
         <div class="bg-slate-900 p-6 rounded-2xl shadow-xl border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
                 <h1 class="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
@@ -31,7 +37,7 @@
                 <p class="text-slate-400 mt-1">Live wireless control &mdash; switch diagnostician and math parser</p>
             </div>
             <div class="flex flex-wrap gap-2 items-center">
-                <button id="btn-zero" class="px-3 py-1 bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/40 transition-colors rounded-full text-xs font-bold border border-yellow-500/50 cursor-pointer">
+                <button id="btn-zero" class="px-3 py-1 bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/40 transition-colors rounded-full text-xs font-bold border border-yellow-500/50 cursor-pointer shadow-lg shadow-yellow-900/20">
                     SET ORIGIN (0,0)
                 </button>
                 <span class="px-3 py-1 bg-blue-500/10 text-blue-400 rounded-full text-xs font-semibold border border-blue-500/20">Mega Pins 22-32</span>
@@ -46,71 +52,65 @@
                 <div class="bg-slate-900 p-6 rounded-2xl shadow-xl border border-slate-800 relative overflow-hidden">
                     <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-indigo-500"></div>
                     <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-lg font-semibold text-white">Wireless Control Switches</h2>
+                        <h2 class="text-lg font-semibold text-white">Wireless Control Pendant</h2>
                         <span class="text-[10px] code-font px-2 py-0.5 bg-slate-800 text-slate-400 rounded">WebSocket</span>
                     </div>
                     
-                    <p class="text-xs text-slate-400 mb-6">These buttons send real jog commands to the ESP32, which relays them to the Mega. Physical switches on the machine always take priority.</p>
+                    <p class="text-xs text-slate-400 mb-6">Jog the machine using the directional pads. Physical switches on the rig override these commands.</p>
                     
-                    <div class="space-y-4">
-                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
-                            <div>
-                                <span class="text-xs font-bold text-slate-400 block">X-Axis</span>
-                                <span class="text-[10px] text-blue-400 code-font">NEMA 17 (Pitch: 5mm)</span>
-                            </div>
-                            <div class="flex gap-2">
-                                <button id="btn-x-rev" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 active:text-white rounded-lg text-xs font-bold transition-all border border-slate-700 select-none touch-none">REV <span class="text-[9px] block text-slate-500 active:text-blue-200">Pin 29</span></button>
-                                <button id="btn-x-fwd" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 active:text-white rounded-lg text-xs font-bold transition-all border border-slate-700 select-none touch-none">FWD <span class="text-[9px] block text-slate-500 active:text-blue-200">Pin 28</span></button>
+                    <div class="flex flex-col sm:flex-row justify-center items-center gap-8 mb-6">
+                        
+                        <div class="flex flex-col gap-2 items-center bg-slate-950 p-4 rounded-xl border border-slate-800">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">X-Axis</span>
+                            <button id="btn-x-fwd" class="side-btn" title="Pin 28">FWD<br><span class="text-[9px] font-normal text-slate-400 code-font">P28</span></button>
+                            <button id="btn-x-rev" class="side-btn" title="Pin 29">REV<br><span class="text-[9px] font-normal text-slate-400 code-font">P29</span></button>
+                        </div>
+
+                        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col items-center">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Scan Plane (Y/Z)</span>
+                            <div class="grid grid-cols-3 grid-rows-3 gap-2">
+                                <div></div>
+                                <button id="btn-z-fwd" class="dpad-btn" title="Pin 26">Z+ <span class="text-[9px] font-normal text-emerald-400 code-font mt-1">P26</span></button>
+                                <div></div>
+                                
+                                <button id="btn-y-rev" class="dpad-btn" title="Pin 23">Y- <span class="text-[9px] font-normal text-blue-400 code-font mt-1">P23</span></button>
+                                <div class="flex items-center justify-center">
+                                    <div class="w-4 h-4 rounded-full bg-slate-700/50"></div>
+                                </div>
+                                <button id="btn-y-fwd" class="dpad-btn" title="Pin 22">Y+ <span class="text-[9px] font-normal text-blue-400 code-font mt-1">P22</span></button>
+                                
+                                <div></div>
+                                <button id="btn-z-rev" class="dpad-btn" title="Pin 27">Z- <span class="text-[9px] font-normal text-emerald-400 code-font mt-1">P27</span></button>
+                                <div></div>
                             </div>
                         </div>
 
-                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
-                            <div>
-                                <span class="text-xs font-bold text-slate-400 block">Y-Axis</span>
-                                <span class="text-[10px] text-blue-400 code-font">NEMA 17 (Pitch: 5mm)</span>
-                            </div>
-                            <div class="flex gap-2">
-                                <button id="btn-y-rev" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 active:text-white rounded-lg text-xs font-bold transition-all border border-slate-700 select-none touch-none">REV <span class="text-[9px] block text-slate-500 active:text-blue-200">Pin 23</span></button>
-                                <button id="btn-y-fwd" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 active:text-white rounded-lg text-xs font-bold transition-all border border-slate-700 select-none touch-none">FWD <span class="text-[9px] block text-slate-500 active:text-blue-200">Pin 22</span></button>
-                            </div>
-                        </div>
+                    </div>
 
-                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
-                            <div>
-                                <span class="text-xs font-bold text-slate-400 block">A-Axis (Rotary)</span>
-                                <span class="text-[10px] text-amber-500 code-font">NEMA 17 (Pitch: 1mm)</span>
-                            </div>
-                            <div class="flex gap-2">
-                                <button id="btn-a-rev" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 active:text-white rounded-lg text-xs font-bold transition-all border border-slate-700 select-none touch-none">REV <span class="text-[9px] block text-slate-500 active:text-blue-200">Pin 25</span></button>
-                                <button id="btn-a-fwd" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 active:text-white rounded-lg text-xs font-bold transition-all border border-slate-700 select-none touch-none">FWD <span class="text-[9px] block text-slate-500 active:text-blue-200">Pin 24</span></button>
-                            </div>
+                    <div class="bg-amber-950/20 p-4 rounded-xl border border-amber-900/30 flex items-center justify-between mb-4">
+                        <div>
+                            <span class="text-[11px] font-bold text-amber-500 uppercase tracking-widest block mb-1">A-Axis (Rotary)</span>
+                            <span class="text-[9px] text-amber-500/60 code-font">1mm Pitch NEMA 17</span>
                         </div>
+                        <div class="flex gap-2 w-1/2">
+                            <button id="btn-a-rev" class="side-btn !border-amber-900/50 hover:!bg-amber-900/30 active:!bg-amber-600">REV</button>
+                            <button id="btn-a-fwd" class="side-btn !border-amber-900/50 hover:!bg-amber-900/30 active:!bg-amber-600">FWD</button>
+                        </div>
+                    </div>
 
-                        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
-                            <div>
-                                <span class="text-xs font-bold text-slate-400 block">Z-Axis (Vertical)</span>
-                                <span class="text-[10px] text-emerald-400 code-font">NEMA 23 (Pitch: 5mm)</span>
-                            </div>
-                            <div class="flex gap-2">
-                                <button id="btn-z-rev" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 active:text-white rounded-lg text-xs font-bold transition-all border border-slate-700 select-none touch-none">REV <span class="text-[9px] block text-slate-500 active:text-blue-200">Pin 27</span></button>
-                                <button id="btn-z-fwd" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 active:bg-blue-600 active:text-white rounded-lg text-xs font-bold transition-all border border-slate-700 select-none touch-none">FWD <span class="text-[9px] block text-slate-500 active:text-blue-200">Pin 26</span></button>
-                            </div>
-                        </div>
-
-                        <div class="pt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <button id="btn-go-target" class="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:from-blue-700 active:to-indigo-700 text-white rounded-xl font-bold text-xs transition-all border border-blue-500/20 flex flex-col items-center justify-center">
-                                <span>GO TO TARGET</span>
-                                <span class="text-[9px] text-blue-200 font-medium code-font mt-0.5">Canvas Click</span>
-                            </button>
-                            <button id="btn-auto-scan" class="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:from-emerald-700 active:to-teal-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs transition-all border border-emerald-500/20 flex flex-col items-center justify-center">
-                                <span>START SCAN</span>
-                                <span class="text-[9px] text-emerald-200 font-medium code-font mt-0.5">Pin 32</span>
-                            </button>
-                            <button id="btn-stop-scan" disabled class="w-full py-3 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 active:from-red-700 active:to-rose-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs transition-all border border-red-500/20 flex flex-col items-center justify-center">
-                                <span>ABORT SCAN</span>
-                                <span class="text-[9px] text-red-200 font-medium code-font mt-0.5">Software E-Stop</span>
-                            </button>
-                        </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <button id="btn-go-target" class="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:from-blue-700 active:to-indigo-700 text-white rounded-xl font-bold text-xs transition-all border border-blue-500/20 flex flex-col items-center justify-center">
+                            <span>GO TO TARGET</span>
+                            <span class="text-[9px] text-blue-200 font-medium code-font mt-0.5">Canvas Click</span>
+                        </button>
+                        <button id="btn-auto-scan" class="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:from-emerald-700 active:to-teal-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs transition-all border border-emerald-500/20 flex flex-col items-center justify-center">
+                            <span>START SCAN</span>
+                            <span class="text-[9px] text-emerald-200 font-medium code-font mt-0.5">Pin 32</span>
+                        </button>
+                        <button id="btn-stop-scan" disabled class="w-full py-3 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 active:from-red-700 active:to-rose-700 disabled:opacity-50 text-white rounded-xl font-bold text-xs transition-all border border-red-500/20 flex flex-col items-center justify-center">
+                            <span>ABORT SCAN</span>
+                            <span class="text-[9px] text-red-200 font-medium code-font mt-0.5">Software E-Stop</span>
+                        </button>
                     </div>
                 </div>
 
@@ -126,14 +126,14 @@
                         </div>
                         <div>
                             <div class="flex justify-between text-sm font-medium text-slate-300 mb-2">
-                                <span>Scan Grid Width (Z-Axis)</span>
-                                <span class="text-blue-400 font-bold"><span id="val-width">50</span> mm</span>
+                                <span>Scan Grid Width (Z-Axis Vertical)</span>
+                                <span class="text-emerald-400 font-bold"><span id="val-width">50</span> mm</span>
                             </div>
                             <input type="range" id="in-width" min="10" max="250" step="10" value="50">
                         </div>
                         <div>
                             <div class="flex justify-between text-sm font-medium text-slate-300 mb-2">
-                                <span>Scan Grid Length (Y-Axis)</span>
+                                <span>Scan Grid Length (Y-Axis Horizontal)</span>
                                 <span class="text-blue-400 font-bold"><span id="val-length">50</span> mm</span>
                             </div>
                             <input type="range" id="in-length" min="10" max="250" step="10" value="50">
@@ -141,14 +141,14 @@
                         <div>
                             <div class="flex justify-between text-sm font-medium text-slate-300 mb-2">
                                 <span>Grid Resolution (Step Size)</span>
-                                <span class="text-blue-400 font-bold"><span id="val-step">10</span> mm</span>
+                                <span class="text-slate-400 font-bold"><span id="val-step">10</span> mm</span>
                             </div>
                             <input type="range" id="in-step" min="2" max="50" step="1" value="10">
                         </div>
                         <div>
                             <div class="flex justify-between text-sm font-medium text-slate-300 mb-2">
                                 <span>Sensor Reading Stop-Time</span>
-                                <span class="text-blue-400 font-bold"><span id="val-wait">15</span> sec</span>
+                                <span class="text-slate-400 font-bold"><span id="val-wait">15</span> sec</span>
                             </div>
                             <input type="range" id="in-wait" min="1" max="60" step="1" value="15">
                         </div>
@@ -168,24 +168,24 @@
                             <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full" style="background: rgb(239,68,68)"></span>Hot</span>
                         </div>
                     </div>
-                    <p class="text-[10px] text-slate-500 mb-3">Dots are colored by measured temperature. The scan-area grid outline only appears while you adjust the width, length, or step sliders.</p>
+                    <p class="text-[10px] text-slate-500 mb-3">Y-Axis is Horizontal. Z-Axis is Vertical. Dots indicate simulated sensor temperature heat map.</p>
                     <div class="bg-slate-950 rounded-xl border border-slate-800 flex-1 flex flex-col p-2">
-                        <div class="relative flex-1 w-full h-full min-h-[250px]">
+                        <div class="relative flex-1 w-full h-full min-h-[350px]">
                             <canvas id="viz-canvas" class="absolute inset-0 w-full h-full block bg-slate-950"></canvas>
                         </div>
-                        <div class="mt-2 bg-slate-900 px-4 py-2.5 rounded-lg border border-slate-800 flex flex-col gap-2 text-[11px] sm:text-xs font-mono text-slate-300">
+                        <div class="mt-2 bg-slate-900 px-4 py-3 rounded-lg border border-slate-800 flex flex-col gap-3 text-[11px] sm:text-xs font-mono text-slate-300">
                             <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-                                <div>X Rel: <span id="pos-x" class="text-blue-400 font-bold text-sm">0.00</span> mm</div>
+                                <div>X Rel: <span id="pos-x" class="text-white font-bold text-sm">0.00</span> mm</div>
                                 <div>Y Rel: <span id="pos-y" class="text-blue-400 font-bold text-sm">0.00</span> mm</div>
-                                <div>Z Rel: <span id="pos-z" class="text-blue-400 font-bold text-sm">0.00</span> mm</div>
+                                <div>Z Rel: <span id="pos-z" class="text-emerald-400 font-bold text-sm">0.00</span> mm</div>
                                 <div>A Rel: <span id="pos-a" class="text-amber-500 font-bold text-sm">0.00</span>°</div>
                             </div>
-                            <div class="flex justify-around items-center pt-1">
-                                <div class="flex items-center gap-2">
+                            <div class="flex justify-around items-center">
+                                <div class="flex items-center gap-2 bg-slate-950 px-4 py-1.5 rounded-full border border-slate-800">
                                     <span class="text-slate-500 uppercase tracking-widest text-[9px] font-sans font-bold">Mag Flux:</span> 
                                     <span id="sens-flux" class="text-purple-400 font-bold text-sm">0.00</span> mT
                                 </div>
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-2 bg-slate-950 px-4 py-1.5 rounded-full border border-slate-800">
                                     <span class="text-slate-500 uppercase tracking-widest text-[9px] font-sans font-bold">Temp:</span> 
                                     <span id="sens-temp" class="text-rose-400 font-bold text-sm">25.0</span> °C
                                 </div>
@@ -207,7 +207,7 @@
                             <button id="btn-clear-console" class="text-xs text-slate-500 hover:text-slate-300 font-medium transition-colors">Clear Output</button>
                         </div>
                     </div>
-                    <div id="serial-terminal" class="bg-slate-950 p-4 rounded-xl border border-slate-800 h-36 overflow-y-auto custom-scrollbar code-font text-xs text-emerald-400 space-y-1"></div>
+                    <div id="serial-terminal" class="bg-slate-950 p-4 rounded-xl border border-slate-800 h-36 overflow-y-auto custom-scrollbar code-font text-[10px] text-emerald-400 space-y-1"></div>
                 </div>
 
                 <div class="bg-slate-900 p-6 rounded-2xl shadow-xl border-t border-emerald-500/20">
@@ -315,7 +315,7 @@
             if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
         }
 
-        // Jog Buttons (Fixed to trigger properly)
+        // Jog Buttons 
         const axisMap = {
             'btn-x-fwd': ['X', 'F'], 'btn-x-rev': ['X', 'R'],
             'btn-y-fwd': ['Y', 'F'], 'btn-y-rev': ['Y', 'R'],
@@ -362,60 +362,82 @@
             const centerX = pad + (plotW / 2);
             const centerY = pad + (plotH / 2);
 
-            // Canvas visually represents +/- 125mm from the 0,0 center origin
-            const viewRange = 125.0; 
-            function mapZ(relZ) { return centerX + (relZ / viewRange) * (plotW / 2); }
-            function mapY(relY) { return centerY - (relY / viewRange) * (plotH / 2); } // Y goes up
+            // Canvas visually represents +/- 150mm from the 0,0 center origin
+            const viewRange = 150.0; 
+            
+            // Y is Horizontal (Right is positive)
+            function mapY(relY) { return centerX + (relY / viewRange) * (plotW / 2); }
+            // Z is Vertical (Up is positive)
+            function mapZ(relZ) { return centerY - (relZ / viewRange) * (plotH / 2); } 
 
-            // Draw center crosshairs (0,0)
-            ctx.strokeStyle = '#334155'; ctx.lineWidth = 1;
-            ctx.beginPath(); ctx.moveTo(pad, centerY); ctx.lineTo(w-pad, centerY); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(centerX, pad); ctx.lineTo(centerX, h-pad); ctx.stroke();
+            // Draw crosshairs (Axes)
+            ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(pad, centerY); ctx.lineTo(w-pad, centerY); ctx.stroke(); // Y Axis line
+            ctx.beginPath(); ctx.moveTo(centerX, pad); ctx.lineTo(centerX, h-pad); ctx.stroke(); // Z Axis line
+
+            // Draw Scale Markers
             ctx.fillStyle = '#64748b'; ctx.font = '10px monospace';
-            ctx.fillText("(0,0)", centerX + 5, centerY - 5);
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            const scaleTicks = [-100, -50, 50, 100];
+            
+            scaleTicks.forEach(val => {
+                // Y-Axis labels (Horizontal)
+                ctx.fillText(val, mapY(val), centerY + 12);
+                ctx.beginPath(); ctx.moveTo(mapY(val), centerY - 3); ctx.lineTo(mapY(val), centerY + 3); ctx.stroke();
+                
+                // Z-Axis labels (Vertical)
+                ctx.fillText(val, centerX - 18, mapZ(val));
+                ctx.beginPath(); ctx.moveTo(centerX - 3, mapZ(val)); ctx.lineTo(centerX + 3, mapZ(val)); ctx.stroke();
+            });
+            ctx.fillStyle = '#94a3b8'; ctx.font = 'bold 10px monospace';
+            ctx.fillText("(0,0)", centerX + 18, centerY - 12);
+            ctx.fillText("Y", w - pad + 10, centerY);
+            ctx.fillText("Z", centerX, pad - 10);
 
             // Calculate relative machine coordinates based on the set origin
-            const relMachineZ = machineZ - originOffset.z;
             const relMachineY = machineY - originOffset.y;
+            const relMachineZ = machineZ - originOffset.z;
 
             // Draw Grid Box if adjusting sliders
-            const scanWidth = parseFloat(document.getElementById('in-width').value);
-            const scanLength = parseFloat(document.getElementById('in-length').value);
+            const scanWidth = parseFloat(document.getElementById('in-width').value); // Z dimension
+            const scanLength = parseFloat(document.getElementById('in-length').value); // Y dimension
             const scanStep = parseFloat(document.getElementById('in-step').value);
 
             if (gridVisible) {
                 // If simulating, draw box around origin, else draw around current pos
-                const boxCenterZ = (isSimulatingScan ? scanStartOrigin.z : machineZ) - originOffset.z;
                 const boxCenterY = (isSimulatingScan ? scanStartOrigin.y : machineY) - originOffset.y;
+                const boxCenterZ = (isSimulatingScan ? scanStartOrigin.z : machineZ) - originOffset.z;
                 
-                const boxW = (scanWidth / viewRange) * (plotW / 2);
-                const boxH = (scanLength / viewRange) * (plotH / 2);
-                const boxX = mapZ(boxCenterZ - (scanWidth / 2));
-                const boxY = mapY(boxCenterY + (scanLength / 2)); // Top left corner
+                const boxW = (scanLength / viewRange) * (plotW / 2);
+                const boxH = (scanWidth / viewRange) * (plotH / 2);
+                
+                // Box Top Left corner calculation
+                const boxCanvasX = mapY(boxCenterY - (scanLength / 2));
+                const boxCanvasY = mapZ(boxCenterZ + (scanWidth / 2)); // mapZ is inverted (top is +)
 
                 ctx.strokeStyle = '#3b82f6'; ctx.setLineDash([4, 4]);
-                ctx.strokeRect(boxX, boxY, boxW, boxH);
+                ctx.strokeRect(boxCanvasX, boxCanvasY, boxW, boxH);
                 ctx.setLineDash([]);
             }
 
             // Draw target matrix points
-            const pointsZCount = Math.floor(scanWidth / scanStep) + 1;
             const pointsYCount = Math.floor(scanLength / scanStep) + 1;
+            const pointsZCount = Math.floor(scanWidth / scanStep) + 1;
             
             // Re-calculate grid start relative to origin
-            const startRelZ = (isSimulatingScan ? scanStartOrigin.z : machineZ) - (scanWidth / 2.0) - originOffset.z;
             const startRelY = (isSimulatingScan ? scanStartOrigin.y : machineY) - (scanLength / 2.0) - originOffset.y;
+            const startRelZ = (isSimulatingScan ? scanStartOrigin.z : machineZ) - (scanWidth / 2.0) - originOffset.z;
 
             for (let yIdx = 0; yIdx < pointsYCount; yIdx++) {
                 for (let zIdx = 0; zIdx < pointsZCount; zIdx++) {
-                    const ptRelZ = startRelZ + (zIdx * scanStep);
                     const ptRelY = startRelY + (yIdx * scanStep);
-                    const canvasZ = mapZ(ptRelZ);
-                    const canvasY = mapY(ptRelY);
+                    const ptRelZ = startRelZ + (zIdx * scanStep);
+                    const canvasX = mapY(ptRelY);
+                    const canvasY = mapZ(ptRelZ);
                     
-                    // Look up using raw physical keys since map was saved that way
-                    const physZ = ptRelZ + originOffset.z;
+                    // Look up using raw physical keys
                     const physY = ptRelY + originOffset.y;
+                    const physZ = ptRelZ + originOffset.z;
                     const pointKey = `${physZ.toFixed(1)},${physY.toFixed(1)}`;
                     
                     let isCurrentScanningPoint = false;
@@ -430,22 +452,22 @@
 
                     ctx.fillStyle = isCurrentScanningPoint ? '#f59e0b' : (hasReading ? tempToColor(scannedPoints.get(pointKey)) : '#334155');
                     ctx.beginPath();
-                    ctx.arc(canvasZ, canvasY, hasReading ? 4 : 3, 0, Math.PI * 2);
+                    ctx.arc(canvasX, canvasY, hasReading ? 4 : 3, 0, Math.PI * 2);
                     ctx.fill();
                 }
             }
 
             // Draw Machine Head (Sensor location)
-            const headZ = mapZ(relMachineZ);
-            const headY = mapY(relMachineY);
+            const headCanvasX = mapY(relMachineY);
+            const headCanvasY = mapZ(relMachineZ);
 
             ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 1; ctx.setLineDash([2,2]);
-            ctx.beginPath(); ctx.moveTo(centerX, headY); ctx.lineTo(headZ, headY); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(headZ, centerY); ctx.lineTo(headZ, headY); ctx.stroke(); ctx.setLineDash([]);
+            ctx.beginPath(); ctx.moveTo(centerX, headCanvasY); ctx.lineTo(headCanvasX, headCanvasY); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(headCanvasX, centerY); ctx.lineTo(headCanvasX, headCanvasY); ctx.stroke(); ctx.setLineDash([]);
 
             ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.arc(headZ, headY, 8, 0, Math.PI * 2); ctx.stroke();
-            ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(headZ, headY, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(headCanvasX, headCanvasY, 8, 0, Math.PI * 2); ctx.stroke();
+            ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(headCanvasX, headCanvasY, 3, 0, Math.PI * 2); ctx.fill();
         }
 
         function renderLoop() {
@@ -461,11 +483,12 @@
             requestAnimationFrame(renderLoop);
         }
 
+        // Make grid momentarily visible when adjusting settings
         ['in-width', 'in-length', 'in-step'].forEach(id => {
             document.getElementById(id).addEventListener('input', () => {
                 gridVisible = true;
                 if (gridHideTimer) clearTimeout(gridHideTimer);
-                gridHideTimer = setTimeout(() => { gridVisible = false; }, 1500);
+                gridHideTimer = setTimeout(() => { gridVisible = false; }, 2000);
             });
         });
 
