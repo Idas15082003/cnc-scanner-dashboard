@@ -307,6 +307,41 @@
             printToSerial(`[SYSTEM] Target locked at Y:${relClickY.toFixed(1)} Z:${relClickZ.toFixed(1)} (Relative)`, "text-blue-400");
         });
         // ============================================================
+        // Parameter Sliders & Grid Visibility (Both Features)
+        // ============================================================
+        function updateSliderValues() {
+            // Feature 1: Update text labels next to the sliders instantly
+            document.getElementById('val-speed').textContent = parseFloat(document.getElementById('in-speed').value).toFixed(1);
+            document.getElementById('val-width').textContent = document.getElementById('in-width').value;
+            document.getElementById('val-length').textContent = document.getElementById('in-length').value;
+            document.getElementById('val-step').textContent = document.getElementById('in-step').value;
+            document.getElementById('val-wait').textContent = document.getElementById('in-wait').value;
+        }
+
+        // Attach text update listener to ALL sliders
+        ['in-speed', 'in-width', 'in-length', 'in-step', 'in-wait'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updateSliderValues);
+        });
+
+        // Feature 2: Make grid momentarily visible only when adjusting dimensions
+        ['in-width', 'in-length', 'in-step'].forEach(id => {
+            document.getElementById(id).addEventListener('input', () => {
+                gridVisible = true; // Turn on the blue box
+                if (gridHideTimer) clearTimeout(gridHideTimer); 
+                // Hide it 2 seconds after you stop dragging
+                gridHideTimer = setTimeout(() => { gridVisible = false; }, 2000);
+            });
+        });
+
+        // Transmit the new speed to the hardware ONLY when you release the slider
+        document.getElementById('in-speed').addEventListener('change', () => {
+            sendCmd({ cmd: "setSpeed", value: parseFloat(document.getElementById('in-speed').value) });
+            printToSerial(`[SYSTEM] Jog Velocity updated to ${document.getElementById('in-speed').value} mm/s`, "text-blue-400");
+        });
+
+        // Run once on page load to set initial values
+        updateSliderValues();
+        // ============================================================
         // WebSocket Link
         // ============================================================
         function connectWebSocket() {
