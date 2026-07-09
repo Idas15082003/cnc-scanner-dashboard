@@ -278,7 +278,41 @@
             originOffset.a = machineA;
             printToSerial("[SYSTEM] Local Origin (0,0) set to current physical position.", "text-yellow-400 font-bold");
         });
+        // ============================================================
+        // Target Locking Logic
+        // ============================================================
+        canvas.addEventListener('mousedown', (e) => {
+            if (scanState !== "idle") return;
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+            
+            const pad = 40;
+            const plotW = canvas.width - (pad * 2);
+            const plotH = canvas.height - (pad * 2);
+            const centerX = pad + (plotW / 2);
+            const centerY = pad + (plotH / 2);
+            const viewRange = 150.0; 
 
+            // Convert canvas pixels back to relative mm
+            const relClickY = ((mouseX - centerX) / (plotW / 2)) * viewRange;
+            const relClickZ = ((centerY - mouseY) / (plotH / 2)) * viewRange;
+
+            // Save as absolute machine coordinates
+            userTarget = { 
+                y: Math.max(0, relClickY + originOffset.y), 
+                z: Math.max(0, relClickZ + originOffset.z) 
+            };
+            
+            printToSerial(`[SYSTEM] Target locked at Y:${relClickY.toFixed(1)} Z:${relClickZ.toFixed(1)} (Relative)`, "text-blue-400");
+        });
+
+        document.getElementById('btn-go-target').addEventListener('click', () => {
+            if (scanState !== "idle" || !userTarget) return;
+            sendCmd({ cmd: "goto", y: userTarget.y, z: userTarget.z });
+            isMovingToTarget = true;
+            printToSerial(`[SYSTEM] Moving to Target...`, "text-blue-400");
+        });
         // ============================================================
         // WebSocket Link
         // ============================================================
@@ -456,7 +490,18 @@
                     ctx.fill();
                 }
             }
-
+            // Draw User Target
+            if (userTarget) {
+                const targetRelY = userTarget.y - originOffset.y;
+                const targetRelZ = userTarget.z - originOffset.z;
+                const targetCanvasX = mapY(targetRelY);
+                const targetCanvasY = mapZ(targetRelZ);
+                
+                ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(targetCanvasX - 8, targetCanvasY); ctx.lineTo(targetCanvasX + 8, targetCanvasY); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(targetCanvasX, targetCanvasY - 8); ctx.lineTo(targetCanvasX, targetCanvasY + 8); ctx.stroke();
+                ctx.beginPath(); ctx.arc(targetCanvasX, targetCanvasY, 12, 0, Math.PI*2); ctx.setLineDash([2, 2]); ctx.stroke(); ctx.setLineDash([]);
+            }
             // Draw Machine Head (Sensor location)
             const headCanvasX = mapY(relMachineY);
             const headCanvasY = mapZ(relMachineZ);
