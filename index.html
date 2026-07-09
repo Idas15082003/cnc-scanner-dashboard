@@ -279,7 +279,7 @@
             printToSerial("[SYSTEM] Local Origin (0,0) set to current physical position.", "text-yellow-400 font-bold");
         });
         // ============================================================
-        // Target Locking Logic
+        // Target Locking Logic (Unclamped for full 360-degree freedom)
         // ============================================================
         canvas.addEventListener('mousedown', (e) => {
             if (scanState !== "idle") return;
@@ -298,20 +298,13 @@
             const relClickY = ((mouseX - centerX) / (plotW / 2)) * viewRange;
             const relClickZ = ((centerY - mouseY) / (plotH / 2)) * viewRange;
 
-            // Save as absolute machine coordinates
+            // Save as absolute machine coordinates without the 0-limit clamp
             userTarget = { 
-                y: Math.max(0, relClickY + originOffset.y), 
-                z: Math.max(0, relClickZ + originOffset.z) 
+                y: relClickY + originOffset.y, 
+                z: relClickZ + originOffset.z 
             };
             
             printToSerial(`[SYSTEM] Target locked at Y:${relClickY.toFixed(1)} Z:${relClickZ.toFixed(1)} (Relative)`, "text-blue-400");
-        });
-
-        document.getElementById('btn-go-target').addEventListener('click', () => {
-            if (scanState !== "idle" || !userTarget) return;
-            sendCmd({ cmd: "goto", y: userTarget.y, z: userTarget.z });
-            isMovingToTarget = true;
-            printToSerial(`[SYSTEM] Moving to Target...`, "text-blue-400");
         });
         // ============================================================
         // WebSocket Link
