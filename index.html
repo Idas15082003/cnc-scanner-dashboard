@@ -397,31 +397,61 @@
             // Z is Vertical (Up is positive)
             function mapZ(relZ) { return centerY - (relZ / viewRange) * (plotH / 2); } 
 
-            // Draw crosshairs (Axes)
-            ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
+            // ==========================================
+            // 1. Draw Precision Background Grid (10mm)
+            // ==========================================
+            ctx.strokeStyle = '#0f172a'; // Faint grid lines
+            ctx.lineWidth = 1;
+            for (let val = -150; val <= 150; val += 10) {
+                if (val === 0) continue;
+                // Vertical grid lines (Y scale)
+                ctx.beginPath(); ctx.moveTo(mapY(val), pad); ctx.lineTo(mapY(val), h-pad); ctx.stroke();
+                // Horizontal grid lines (Z scale)
+                ctx.beginPath(); ctx.moveTo(pad, mapZ(val)); ctx.lineTo(w-pad, mapZ(val)); ctx.stroke();
+            }
+
+            // ==========================================
+            // 2. Draw Main Crosshairs (Axes)
+            // ==========================================
+            ctx.strokeStyle = '#334155'; 
+            ctx.lineWidth = 1.5;
             ctx.beginPath(); ctx.moveTo(pad, centerY); ctx.lineTo(w-pad, centerY); ctx.stroke(); // Y Axis line
             ctx.beginPath(); ctx.moveTo(centerX, pad); ctx.lineTo(centerX, h-pad); ctx.stroke(); // Z Axis line
 
-            // Draw Scale Markers
-            ctx.fillStyle = '#64748b'; ctx.font = '10px monospace';
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            const scaleTicks = [-100, -50, 50, 100];
+            // ==========================================
+            // 3. Draw Major & Minor Scale Ticks
+            // ==========================================
+            ctx.fillStyle = '#64748b'; 
+            ctx.font = '9px monospace';
+            ctx.textAlign = 'center'; 
+            ctx.textBaseline = 'middle';
             
-            scaleTicks.forEach(val => {
-                // Y-Axis labels (Horizontal)
-                ctx.fillText(val, mapY(val), centerY + 12);
-                ctx.beginPath(); ctx.moveTo(mapY(val), centerY - 3); ctx.lineTo(mapY(val), centerY + 3); ctx.stroke();
+            for (let val = -150; val <= 150; val += 10) {
+                if (val === 0) continue;
                 
-                // Z-Axis labels (Vertical)
-                ctx.fillText(val, centerX - 18, mapZ(val));
-                ctx.beginPath(); ctx.moveTo(centerX - 3, mapZ(val)); ctx.lineTo(centerX + 3, mapZ(val)); ctx.stroke();
-            });
-            ctx.fillStyle = '#94a3b8'; ctx.font = 'bold 10px monospace';
-            ctx.fillText("(0,0)", centerX + 18, centerY - 12);
-            ctx.fillText("Y", w - pad + 10, centerY);
-            ctx.fillText("Z", centerX, pad - 10);
+                const isMajor = (val % 50 === 0);
+                const tickLength = isMajor ? 5 : 2;
+                ctx.strokeStyle = isMajor ? '#94a3b8' : '#475569';
+                ctx.lineWidth = isMajor ? 1.5 : 1;
+                
+                // Y-Axis ticks (Horizontal)
+                ctx.beginPath(); ctx.moveTo(mapY(val), centerY - tickLength); ctx.lineTo(mapY(val), centerY + tickLength); ctx.stroke();
+                if (isMajor) ctx.fillText(val, mapY(val), centerY + 14);
 
-            // Calculate relative machine coordinates based on the set origin
+                // Z-Axis ticks (Vertical)
+                ctx.beginPath(); ctx.moveTo(centerX - tickLength, mapZ(val)); ctx.lineTo(centerX + tickLength, mapZ(val)); ctx.stroke();
+                if (isMajor) ctx.fillText(val, centerX - 20, mapZ(val));
+            }
+            
+            // Axis Labels
+            ctx.fillStyle = '#94a3b8'; ctx.font = 'bold 10px monospace';
+            ctx.fillText("(0,0)", centerX + 20, centerY - 14);
+            ctx.fillText("Y", w - pad + 15, centerY);
+            ctx.fillText("Z", centerX, pad - 15);
+
+            // ==========================================
+            // 4. Calculate relative machine coordinates
+            // ==========================================
             const relMachineY = machineY - originOffset.y;
             const relMachineZ = machineZ - originOffset.z;
 
@@ -483,6 +513,7 @@
                     ctx.fill();
                 }
             }
+
             // Draw User Target
             if (userTarget) {
                 const targetRelY = userTarget.y - originOffset.y;
@@ -495,6 +526,7 @@
                 ctx.beginPath(); ctx.moveTo(targetCanvasX, targetCanvasY - 8); ctx.lineTo(targetCanvasX, targetCanvasY + 8); ctx.stroke();
                 ctx.beginPath(); ctx.arc(targetCanvasX, targetCanvasY, 12, 0, Math.PI*2); ctx.setLineDash([2, 2]); ctx.stroke(); ctx.setLineDash([]);
             }
+
             // Draw Machine Head (Sensor location)
             const headCanvasX = mapY(relMachineY);
             const headCanvasY = mapZ(relMachineZ);
