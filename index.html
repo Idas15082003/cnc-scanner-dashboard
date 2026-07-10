@@ -745,15 +745,6 @@
             requestAnimationFrame(renderLoop);
         }
 
-        // Make grid momentarily visible when adjusting settings
-        ['in-width', 'in-length', 'in-step'].forEach(id => {
-            document.getElementById(id).addEventListener('input', () => {
-                gridVisible = true;
-                if (gridHideTimer) clearTimeout(gridHideTimer);
-                gridHideTimer = setTimeout(() => { gridVisible = false; }, 2000);
-            });
-        });
-
         connectWebSocket();
         requestAnimationFrame(renderLoop);
     </script>
